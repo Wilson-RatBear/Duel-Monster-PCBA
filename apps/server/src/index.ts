@@ -1,31 +1,29 @@
-import cors from "cors";
-import express from "express";
-import "dotenv/config";
-import { db } from "./lib/db/client";
-import { usersTable } from "./lib/db/schemas";
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import { 
+  ClientToServerEvents, 
+  ServerToClientEvents
+} from '@repo/game-types';
+import { setupDuelSocket } from './features/duel/duel.socket.ts';
 
 const app = express();
+app.use(cors());
 
-const origin = ["https://web.localhost"];
-
-app.use(
-	cors({
-		origin,
-	}),
-);
-
-app.get("/", async (req, res) => {
-	const users = await db.select().from(usersTable);
-
-	res.json({
-		data: {
-			users,
-		},
-	});
+const httpServer = createServer(app);
+const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
 });
 
-const port = process.env.PORT ?? "3000";
+const PORT = process.env.PORT || 3001;
 
-app.listen(port, () => {
-	console.log("Server is running on port 3000");
+// Setup Socket Features
+setupDuelSocket(io);
+
+httpServer.listen(PORT, () => {
+  console.log(`Server running on port ${PORT} with ESM and tsx`);
 });
