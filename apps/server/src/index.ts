@@ -6,7 +6,7 @@ import {
   ClientToServerEvents, 
   ServerToClientEvents
 } from '@repo/game-types';
-import { setupDuelSocket } from './features/duel/duel.socket.ts';
+import { setupDuelSocket } from './features/duel/duel.socket.js';
 
 const app = express();
 app.use(cors());

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Terminal de Duelo (Pruebas)</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    body { font-family: monospace; background: #1e1e1e; color: #0f0; padding: 20px; }
+    #logs { height: 400px; overflow-y: scroll; border: 1px solid #0f0; padding: 10px; margin-bottom: 20px; background: #000; }
+    button { background: #0f0; color: #000; border: none; padding: 10px; margin-right: 5px; cursor: pointer; font-weight: bold; margin-bottom: 5px; }
+    button:hover { background: #fff; }
+    .panel { border: 1px dashed #0f0; padding: 10px; margin-bottom: 20px; }
+    .highlight { color: #fff; background: #333; padding: 2px 5px; }
+  </style>
+</head>
+<body>
+  <h1>Terminal Interactiva de Pruebas (Backend)</h1>
+  <p>Esta es una interfaz temporal para comunicarnos crudamente con tu servidor Socket.io antes de construir el Frontend oficial en React.</p>
+  
+  <div id="logs"></div>
+  
+  <div class="panel" id="controls">
+    <button onclick="joinGame()">1. Unirse al Modo Aventura</button>
+    <button onclick="summon()">2. Invocar Monstruo (Carta 0)</button>
+    <button onclick="attack()">3. Atacar a la CPU</button>
+    <button onclick="endTurn()">4. Terminar Turno</button>
+  </div>
+
+  <div class="panel" id="state">
+    <h3>Estado de tu Mano (Cartas disponibles para invocar/lanzar):</h3>
+    <pre id="handInfo">Conéctate al Modo Aventura para recibir tus cartas...</pre>
+  </div>
+
+  <script>
+    // Conectar al servidor Backend de tu Monorepo
+    const socket = io("http://localhost:3001");
+    let myId = "Estudiante-" + Math.floor(Math.random() * 1000);
+    const logsDiv = document.getElementById('logs');
+    const handInfo = document.getElementById('handInfo');
+
+    function log(msg) {
+      logsDiv.innerHTML += `<div>> ${msg}</div>`;
+      logsDiv.scrollTop = logsDiv.scrollHeight;
+    }
+
+    socket.on("connect", () => {
+      log(`Conexión exitosa con el servidor. Tu ID asignado: <span class="highlight">${myId}</span>`);
+    });
+
+    socket.on("roomCreated", (roomId) => {
+      log(`<b>[SISTEMA] Sala Privada Creada: ${roomId}</b>`);
+    });
+
+    socket.on("gameUpdate", (game) => {
+      log(`<br>--- ACTUALIZACIÓN DE TABLERO ---`);
+      log(`Turno Actual: ${game.turn === myId ? '<b style="color: yellow;">¡ES TU TURNO!</b>' : 'Turno de la Máquina'}`);
+      
+      const me = game.players[myId];
+      if (me) {
+        log(`<b>TUS STATS:</b> ${me.hp} HP | ${me.energy} Energía`);
+        let handText = "";
+        me.hand.forEach((card, i) => {
+          handText += `[Índice ${i}] ${card.name} (Tipo: ${card.type}, ATK: ${card.attack || 'N/A'})\n`;
+        });
+        handInfo.textContent = handText || "Mano vacía";
+        
+        if (me.field) {
+            log(`[TU CAMPO] Tienes a: <span class="highlight">${me.field.name}</span> (ATK: ${me.field.attack})`);
+        } else {
+            log(`[TU CAMPO] Vacío.`);
+        }
+      }
+      
+      const cpu = game.players['cpu'];
+      if (cpu) {
+         log(`<b>STATS CPU:</b> ${cpu.hp} HP | ${cpu.energy} Energía`);
+         if (cpu.field) {
+             log(`[CAMPO CPU] Oponente tiene a: <span class="highlight">${cpu.field.name}</span> (ATK: ${cpu.field.attack})`);
+         }
+      }
+
+      log(`<b>HISTORIAL RECIENTE:</b>`);
+      game.logs.slice(-3).forEach(l => log(`📜 ${l}`));
+      
+      if (game.phase === 'GAME_OVER') {
+        log(`<b style="color: red;">¡JUEGO TERMINADO! Ganador: ${game.winner}</b>`);
+      }
+    });
+
+    socket.on("error", (msg) => {
+      log(`<span style="color: orange;">[ALERTA DEL SISTEMA] ${msg}</span>`);
+    });
+
+    // Funciones enlazadas a los botones
+    function joinGame() { socket.emit("joinAdventure", myId); }
+    // En esta prueba rápida, siempre intentaremos invocar o usar la primera carta (Índice 0)
+    function summon() { socket.emit("summonMonster", 0); } 
+    function attack() { socket.emit("attackBasic"); }
+    function endTurn() { socket.emit("endTurn"); }
+  </script>
+</body>
+</html>

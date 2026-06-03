@@ -2,15 +2,242 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { motion, AnimatePresence, usePresence, animate } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 import { 
   GameState, 
   ClientToServerEvents, 
   ServerToClientEvents,
-  MonsterCard
+  MonsterCard,
+  MONSTERS,
+  SPELLS,
+  Card,
+  SpellCard,
+  UserProfile
 } from '@repo/game-types';
 
+function AnimatedNumber({ value }: { value: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const node = ref.current;
+    if (node) {
+      const start = parseInt(node.textContent || '0');
+      if (start === value) return;
+      const controls = animate(start, value, {
+        duration: 2.0,
+        ease: 'linear',
+        onUpdate(v) {
+          node.textContent = Math.round(v).toString();
+        }
+      });
+      return () => controls.stop();
+    }
+  }, [value]);
+  return <span ref={ref}>{value}</span>;
+}
+
 const SOCKET_URL = 'http://localhost:3001';
+
+const BOARD_THEMES: Record<string, any> = {
+  NEUTRAL: {
+    root: 'bg-slate-950',
+    board: 'bg-slate-950/50',
+    opponentSlot: 'border-red-900/20 bg-red-900/5',
+    mySlot: 'border-blue-900/20 bg-blue-900/5',
+    text: 'text-slate-400',
+    sidebar: 'bg-slate-900 border-slate-800',
+    highlight: 'text-blue-400',
+    particles: null
+  },
+  PETROLEO: {
+    root: 'bg-stone-950 bg-[radial-gradient(ellipse_at_center,_rgba(234,179,8,0.04)_0%,_rgba(12,10,9,1)_80%)]',
+    board: 'bg-stone-900/30 border border-yellow-950/30',
+    opponentSlot: 'border-yellow-700/30 bg-stone-900/60 shadow-[0_0_15px_rgba(234,179,8,0.05)]',
+    mySlot: 'border-yellow-700/50 bg-stone-900/80 shadow-[0_0_20px_rgba(234,179,8,0.1)]',
+    text: 'text-amber-500/80',
+    sidebar: 'bg-stone-950 border-stone-900',
+    highlight: 'text-amber-500',
+    particles: (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
+        <div className="absolute -inset-[10px] bg-[radial-gradient(circle_at_bottom,rgba(234,179,8,0.08)_0%,transparent_60%)] animate-pulse" />
+        <div className="absolute bottom-0 left-1/4 w-1 h-32 bg-gradient-to-t from-yellow-600/20 to-transparent rounded blur-sm animate-pulse" />
+        <div className="absolute bottom-10 left-3/4 w-1.5 h-40 bg-gradient-to-t from-amber-600/20 to-transparent rounded blur-sm animate-pulse" />
+      </div>
+    )
+  },
+  ARQUITECTURA: {
+    root: 'bg-sky-950 bg-[linear-gradient(rgba(14,165,233,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(14,165,233,0.08)_1px,transparent_1px)] bg-[size:30px_30px]',
+    board: 'bg-sky-950/50 border border-sky-900/30',
+    opponentSlot: 'border-sky-500/30 bg-sky-950/40 shadow-[0_0_15px_rgba(14,165,233,0.05)]',
+    mySlot: 'border-sky-500/50 bg-sky-950/70 shadow-[0_0_25px_rgba(14,165,233,0.12)]',
+    text: 'text-sky-400/80',
+    sidebar: 'bg-sky-950 border-sky-900',
+    highlight: 'text-sky-400',
+    particles: (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-40 font-mono text-[9px] text-sky-500/20 select-none">
+        <div className="absolute top-4 left-4 border-l border-t border-sky-500/30 w-8 h-8 pl-1 pt-1">R: 0,0,0</div>
+        <div className="absolute bottom-4 right-4 border-r border-b border-sky-500/30 w-16 h-8 text-right pr-1 pt-4">Scale 1:50</div>
+        <div className="absolute top-1/2 left-8 w-24 border-t border-dashed border-sky-500/20 text-center">x-axis</div>
+        <div className="absolute top-8 right-1/4 w-1 h-32 border-l border-dashed border-sky-500/20" />
+      </div>
+    )
+  },
+  CIVIL: {
+    root: 'bg-slate-900 bg-[radial-gradient(circle_at_center,_rgba(71,85,105,0.05)_0%,_rgba(15,23,42,1)_85%)]',
+    board: 'bg-slate-800/30 border border-slate-700/20 shadow-[inset_0_0_30px_rgba(0,0,0,0.5)]',
+    opponentSlot: 'border-slate-500/30 bg-slate-800/50 shadow-[inset_0_0_15px_rgba(0,0,0,0.4)]',
+    mySlot: 'border-slate-500/60 bg-slate-800/80 shadow-[inset_0_0_25px_rgba(0,0,0,0.6)]',
+    text: 'text-slate-400/80',
+    sidebar: 'bg-slate-950 border-slate-800',
+    highlight: 'text-slate-200',
+    particles: (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-20">
+        <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-slate-500/30 border-dashed border-l" />
+        <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-slate-500/30 border-dashed border-t" />
+        <div className="absolute top-10 left-10 w-4 h-4 border border-slate-500/40 rounded-full animate-ping" />
+      </div>
+    )
+  },
+  METEOROLOGIA: {
+    root: 'bg-slate-950 bg-[radial-gradient(circle_at_top_right,_rgba(20,184,166,0.05)_0%,_rgba(15,23,42,1)_85%)]',
+    board: 'bg-slate-900/40 border border-teal-950/20',
+    opponentSlot: 'border-teal-500/30 bg-slate-950/50 shadow-[0_0_15px_rgba(20,184,166,0.05)]',
+    mySlot: 'border-teal-500/60 bg-teal-950/40 shadow-[0_0_25px_rgba(20,184,166,0.15)]',
+    text: 'text-teal-400/80',
+    sidebar: 'bg-slate-950 border-teal-950/50',
+    highlight: 'text-teal-400',
+    particles: (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
+        <div className="absolute -inset-[20px] bg-[radial-gradient(ellipse_at_top_right,rgba(20,184,166,0.05)_0%,transparent_60%)]" />
+        <svg className="absolute w-full h-full text-teal-500/10" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 0,100 Q 200,50 400,150 T 800,50" fill="none" stroke="currentColor" strokeWidth="1.5" className="animate-pulse" />
+          <path d="M 0,250 Q 300,300 600,200 T 1200,300" fill="none" stroke="currentColor" strokeWidth="1" className="animate-pulse" />
+        </svg>
+      </div>
+    )
+  },
+  INFORMATICA: {
+    root: 'bg-black bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:20px_20px]',
+    board: 'bg-neutral-950/80 border border-emerald-950/40 shadow-[0_0_30px_rgba(16,185,129,0.02)]',
+    opponentSlot: 'border-emerald-500/30 bg-black/60 shadow-[0_0_15px_rgba(16,185,129,0.05)]',
+    mySlot: 'border-emerald-500/60 bg-neutral-900/90 shadow-[0_0_25px_rgba(16,185,129,0.12)]',
+    text: 'text-emerald-500/70 font-mono',
+    sidebar: 'bg-black border-neutral-900',
+    highlight: 'text-emerald-400 font-mono',
+    particles: (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-15 font-mono text-[8px] text-emerald-500 select-none flex justify-around">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="flex flex-col animate-bounce" style={{ animationDuration: `${3 + i * 2}s` }}>
+            <span>01001001</span>
+            <span>01001110</span>
+            <span>01000110</span>
+            <span>01001111</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+};
+
+const themeContainerVariants = {
+  NEUTRAL: { transition: { staggerChildren: 0.3 } },
+  INFORMATICA: { transition: { staggerChildren: 0.5 } },
+  ARQUITECTURA: { transition: { staggerChildren: 0.5 } },
+  CIVIL: { transition: { staggerChildren: 0.5 } },
+  METEOROLOGIA: { transition: { staggerChildren: 0.5 } },
+  PETROLEO: { transition: { staggerChildren: 0.5 } }
+};
+
+const layer1BgVariants = {
+  NEUTRAL: { opacity: 1, backgroundColor: '#020617', transition: { duration: 0.8 } },
+  INFORMATICA: { opacity: 1, backgroundColor: '#000000', transition: { duration: 0.5 } },
+  ARQUITECTURA: { opacity: 1, backgroundColor: '#082f49', transition: { duration: 0.5 } },
+  CIVIL: { opacity: 1, backgroundColor: '#1c1917', transition: { duration: 0.5 } },
+  METEOROLOGIA: { opacity: 1, backgroundColor: '#0f172a', transition: { duration: 0.5 } },
+  PETROLEO: { opacity: 1, backgroundColor: '#292524', transition: { duration: 0.5 } }
+};
+
+const layer2GridVariants = {
+  NEUTRAL: { opacity: 0.3, scale: 1, transition: { duration: 0.5 } },
+  INFORMATICA: { opacity: [0, 1], y: [-50, 0], transition: { duration: 0.6 } },
+  ARQUITECTURA: { opacity: [0, 1], scale: [0, 1], transition: { duration: 0.8, ease: "easeOut" } },
+  CIVIL: { opacity: [0, 1], y: [-100, 0], transition: { type: 'spring', bounce: 0.6 } },
+  METEOROLOGIA: { opacity: [0, 1], scale: [0.9, 1.1, 1], transition: { duration: 1 } },
+  PETROLEO: { opacity: [0, 1], clipPath: ['inset(0 100% 0 0)', 'inset(0 0 0 0)'], transition: { duration: 1 } }
+};
+
+const layer3SlotVariants = {
+  NEUTRAL: { opacity: 1, scale: 1, borderColor: 'rgba(51, 65, 85, 0.3)', backgroundColor: 'rgba(15, 23, 42, 0.4)' },
+  INFORMATICA: { opacity: [0, 1, 0.5, 1], scale: 1, borderColor: 'rgba(16, 185, 129, 0.8)', backgroundColor: 'rgba(0, 0, 0, 0.8)', boxShadow: '0 0 20px rgba(16,185,129,0.4)', transition: { duration: 0.8, times: [0, 0.3, 0.6, 1] } },
+  ARQUITECTURA: { opacity: [0, 1], scaleX: [0.5, 1], borderColor: 'rgba(14, 165, 233, 0.8)', backgroundColor: 'rgba(8, 47, 73, 0.6)', transition: { duration: 0.5 } },
+  CIVIL: { opacity: [0, 1], scale: [1.2, 1], borderColor: 'rgba(120, 113, 108, 0.8)', backgroundColor: 'rgba(41, 37, 36, 0.8)', borderStyle: 'solid', borderWidth: '4px', transition: { type: 'spring', bounce: 0.5 } },
+  METEOROLOGIA: { opacity: [0, 1], filter: ['hue-rotate(90deg)', 'hue-rotate(0deg)', 'hue-rotate(-90deg)', 'hue-rotate(0deg)'], borderColor: 'rgba(20, 184, 166, 0.8)', backgroundColor: 'rgba(2, 6, 23, 0.6)', transition: { duration: 1 } },
+  PETROLEO: { opacity: [0, 1], scaleY: [0, 1], borderColor: 'rgba(234, 179, 8, 0.8)', backgroundColor: 'rgba(28, 25, 23, 0.8)', borderStyle: 'double', borderWidth: '6px', transition: { duration: 0.6 } }
+};
+
+function Layer1Background({ theme }: { theme: string }) {
+  return (
+    <motion.div variants={layer1BgVariants} className="absolute inset-0 z-0">
+      <motion.div animate={theme} variants={{
+        INFORMATICA: { opacity: 0 },
+        ARQUITECTURA: { opacity: 0.1, backgroundImage: 'linear-gradient(rgba(14,165,233,1) 1px, transparent 1px), linear-gradient(90deg, rgba(14,165,233,1) 1px, transparent 1px)', backgroundSize: '30px 30px' },
+        CIVIL: { opacity: 0.2, backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.8\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100\' height=\'100\' filter=\'url(%23noise)\' opacity=\'0.5\'/%3E%3C/svg%3E")' },
+        PETROLEO: { opacity: 0.3, backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.1\' numOctaves=\'2\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100\' height=\'100\' filter=\'url(%23noise)\' opacity=\'0.8\'/%3E%3C/svg%3E")' },
+        METEOROLOGIA: { opacity: 0.3, backgroundImage: 'radial-gradient(circle at top right, rgba(20,184,166,0.3) 0%, transparent 60%)' },
+        NEUTRAL: { opacity: 0.1, backgroundImage: 'radial-gradient(circle at center, rgba(71,85,105,0.5) 0%, transparent 85%)' }
+      }} className="absolute inset-0" />
+    </motion.div>
+  );
+}
+
+function Layer2Grid({ theme }: { theme: string }) {
+  return (
+    <motion.div variants={layer2GridVariants} className="absolute inset-0 z-0 pointer-events-none overflow-hidden flex items-center justify-center">
+      {theme === 'INFORMATICA' && (
+         <div className="w-full h-full flex justify-around opacity-40 font-mono text-emerald-500 text-sm">
+           {[...Array(30)].map((_, i) => (
+             <div key={i} className="animate-bounce" style={{ animationDelay: `${i * 0.1}s`, animationDuration: '2s' }}>
+               101010<br/>010101<br/>110011<br/>001100<br/>101010
+             </div>
+           ))}
+         </div>
+      )}
+      {theme === 'ARQUITECTURA' && (
+         <div className="w-full h-full relative">
+           <div className="absolute top-1/2 left-0 w-full h-[2px] bg-sky-400/50" />
+           <div className="absolute left-1/2 top-0 h-full w-[2px] bg-sky-400/50" />
+           <div className="absolute top-1/2 left-1/2 w-96 h-96 -ml-48 -mt-48 border-[2px] border-sky-400/30 rounded-full" />
+           <div className="absolute top-1/2 left-1/2 w-64 h-64 -ml-32 -mt-32 border-[2px] border-sky-400/30 rounded-full" />
+         </div>
+      )}
+      {theme === 'CIVIL' && (
+         <div className="w-full h-full relative">
+           <div className="absolute top-1/3 w-full h-8 bg-gradient-to-b from-stone-500 to-stone-700 border-y-4 border-stone-800 shadow-2xl" />
+           <div className="absolute top-2/3 w-full h-8 bg-gradient-to-b from-stone-500 to-stone-700 border-y-4 border-stone-800 shadow-2xl" />
+           <div className="absolute left-1/3 h-full w-8 bg-gradient-to-r from-stone-500 to-stone-700 border-x-4 border-stone-800 shadow-2xl" />
+           <div className="absolute left-2/3 h-full w-8 bg-gradient-to-r from-stone-500 to-stone-700 border-x-4 border-stone-800 shadow-2xl" />
+         </div>
+      )}
+      {theme === 'METEOROLOGIA' && (
+         <div className="w-full h-full relative flex items-center justify-center">
+           {[1, 2, 3, 4, 5, 6].map(i => (
+             <div key={i} className="absolute border-2 border-teal-500/40 rounded-[30%] animate-[spin_12s_linear_infinite]" style={{ width: `${i*25}%`, height: `${i*25}%`, animationDuration: `${i*4}s` }} />
+           ))}
+         </div>
+      )}
+      {theme === 'PETROLEO' && (
+         <div className="w-full h-full relative">
+           <div className="absolute top-1/2 w-full h-8 bg-gradient-to-b from-yellow-500 to-yellow-700 border-y-4 border-yellow-900 shadow-[0_0_20px_rgba(234,179,8,0.3)]" />
+           <div className="absolute left-1/2 h-full w-8 bg-gradient-to-r from-yellow-500 to-yellow-700 border-x-4 border-yellow-900 shadow-[0_0_20px_rgba(234,179,8,0.3)]" />
+           <div className="absolute top-1/2 left-1/2 w-16 h-16 -ml-8 -mt-8 rounded-full bg-yellow-600 border-4 border-yellow-900" />
+         </div>
+      )}
+      {theme === 'NEUTRAL' && (
+         <div className="w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent absolute top-1/2 -translate-y-1/2" />
+      )}
+    </motion.div>
+  );
+}
 
 export default function GamePage() {
   const [socket, setSocket] = useState<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
@@ -19,10 +246,34 @@ export default function GamePage() {
   const [nameInput, setNameInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [animatingCard, setAnimatingCard] = useState<{ id: string, type: 'ATTACK_IMPACT' | 'SPELL_CAST' | 'ACID_RAIN' | 'VORTEX_ELIMINATION' | 'SPELL_EFFECT', targetId?: string, damage?: number, secondaryTargetId?: string, secondaryDamage?: number, targetDamage?: number, isDestroyed?: boolean } | null>(null);
+  const [isActionLocked, setIsActionLocked] = useState(false);
+  const [selectedActionCard, setSelectedActionCard] = useState<string | null>(null);
   
+  const [selectedCards, setSelectedCards] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<'ALL' | 'MONSTER' | 'SPELL'>('ALL');
+  const [selectedArea, setSelectedArea] = useState<string>('ALL');
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [previewCardId, setPreviewCardId] = useState<string | null>(null);
+  
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [mainMenuTab, setMainMenuTab] = useState<'PLAY' | 'COLLECTION' | 'MANUAL'>('PLAY');
+  const [showGameOver, setShowGameOver] = useState(false);
+
+  useEffect(() => {
+    if (gameState?.phase === 'GAME_OVER') {
+      const timer = setTimeout(() => setShowGameOver(true), 2000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowGameOver(false);
+    }
+  }, [gameState?.phase]);
+
+  const initializedPrepRef = useRef(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  // Initialize Player ID and Socket
+  const allCards = [...MONSTERS, ...SPELLS];
+
   useEffect(() => {
     let pid = localStorage.getItem('duel_monster_player_id');
     if (!pid) {
@@ -48,10 +299,22 @@ export default function GamePage() {
       setError(msg);
     });
 
-    // Auto reconnect if room exists
+    newSocket.on('profileUpdate', (profile) => {
+      setUserProfile(profile);
+    });
+
+    newSocket.on('playAnimation', (data: any) => {
+      setAnimatingCard({ id: data.attackerId || data.spellId || '', type: data.type, targetId: data.targetId, damage: data.damage, secondaryTargetId: data.secondaryTargetId, secondaryDamage: data.secondaryDamage });
+      setTimeout(() => {
+        setAnimatingCard(null);
+      }, data.type === 'SPELL_EFFECT' ? 1500 : 800);
+    });
+
     const savedRoom = localStorage.getItem('duel_monster_room_id');
     if (savedRoom && pid) {
       newSocket.emit('reconnect', savedRoom, pid);
+    } else if (pid) {
+      newSocket.emit('getProfile', pid);
     }
 
     return () => {
@@ -63,58 +326,368 @@ export default function GamePage() {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [gameState?.logs]);
 
-  const createRoom = () => {
-    if (playerId) socket?.emit('createRoom', playerId);
-  };
-  
-  const joinRoom = () => {
-    if (playerId) socket?.emit('joinRoom', roomIdInput, playerId);
-  };
+  useEffect(() => {
+    if (gameState?.phase === 'PREPARATION' && playerId) {
+      if (!initializedPrepRef.current) {
+        initializedPrepRef.current = true;
+        setSelectedCards([]);
+      }
+    } else if (gameState?.phase !== 'PREPARATION') {
+      initializedPrepRef.current = false;
+    }
+  }, [gameState?.phase, playerId, gameState]);
+
+  const createRoom = () => { if (playerId) socket?.emit('createRoom', playerId); };
+  const joinRoom = () => { if (playerId) socket?.emit('joinRoom', roomIdInput, playerId); };
+  const startAdventure = () => { if (playerId) socket?.emit('joinAdventure', playerId); };
+  const nextAdventure = () => { if (playerId) socket?.emit('nextAdventureEncounter', playerId); };
 
   const setReady = (ready: boolean) => socket?.emit('setReady', ready);
   const setName = () => socket?.emit('setName', nameInput);
-  const endTurn = () => socket?.emit('endTurn');
-  const summonMonster = (cardId: string) => socket?.emit('summonMonster', cardId);
-  const attackBasic = () => socket?.emit('attackBasic');
-  const castSpell = (cardId: string) => socket?.emit('castSpell', cardId);
+  
+  const executeAttacks = () => {
+    if (isActionLocked) return;
+    setIsActionLocked(true);
+    socket?.emit('executeAttacks');
+    setTimeout(() => setIsActionLocked(false), 1000);
+  };
+
+  const endTurn = () => {
+    if (isActionLocked) return;
+    setIsActionLocked(true);
+    setSelectedActionCard(null);
+    socket?.emit('endTurn');
+    setTimeout(() => setIsActionLocked(false), 500);
+  };
+  const summonMonster = (cardId: string, index: number) => {
+    if (isActionLocked) return;
+    setIsActionLocked(true);
+    socket?.emit('summonMonster', cardId, index);
+    setTimeout(() => setIsActionLocked(false), 800);
+  };
+  const attackBasic = (attackerIndex: number) => {
+    if (isActionLocked) return;
+    setIsActionLocked(true);
+    socket?.emit('attackBasic', attackerIndex);
+    setTimeout(() => setIsActionLocked(false), 1500);
+  };
+  const castSpell = (cardId: string, targetIndex?: number, isAllyTarget?: boolean) => {
+    if (isActionLocked) return;
+    setIsActionLocked(true);
+    socket?.emit('castSpell', cardId, targetIndex, isAllyTarget);
+    setTimeout(() => setIsActionLocked(false), 800);
+  };
+  const drawCard = () => socket?.emit('drawCard');
+
+  const handleHandCardClick = (card: Card) => {
+    if (!isMyTurn || isActionLocked) return;
+    
+    const me = gameState?.players[playerId || ''];
+    if (card.type === 'MONSTER') {
+      const isFull = me?.monsterZone.every(m => m !== null);
+      if (isFull) {
+        setError("Tu zona de monstruos está llena.");
+        return;
+      }
+      setSelectedActionCard(card.id);
+    } else if (card.type === 'SPELL') {
+      const spellCard = card as SpellCard;
+      if (me && me.energy < spellCard.energyCost) {
+         setError('No tienes suficiente energía.');
+         return;
+      }
+      if (spellCard.targetType === 'SINGLE') {
+        setSelectedActionCard(card.id);
+      } else {
+        castSpell(card.id);
+      }
+    }
+  };
+
+  const handleMySlotClick = (index: number) => {
+    if (!isMyTurn || isActionLocked) return;
+    const me = gameState?.players[playerId || ''];
+    const m = me?.monsterZone?.[index];
+
+    if (selectedActionCard) {
+      const card = me?.hand.find(c => c.id === selectedActionCard);
+      if (card?.type === 'MONSTER') {
+        if (!m) {
+          summonMonster(card.id, index);
+          setSelectedActionCard(null);
+        }
+      } else if (card?.type === 'SPELL') {
+        if (m) {
+          castSpell(card.id, index, true);
+          setSelectedActionCard(null);
+        } else {
+          setError("Debes apuntar a un aliado válido.");
+        }
+      }
+    } else if (m) {
+      if (m.hasAttacked) return;
+      // Instant column attack
+      attackBasic(index);
+    }
+  };
+
+  const handleOpponentSlotClick = (index: number) => {
+    if (!isMyTurn || isActionLocked) return;
+    const opponentId = Object.keys(gameState?.players || {}).find(id => id !== playerId);
+    const opponent = opponentId ? gameState?.players[opponentId] : null;
+    const m = opponent?.monsterZone?.[index];
+    
+    if (selectedActionCard) {
+      const me = gameState?.players[playerId || ''];
+      const card = me?.hand.find(c => c.id === selectedActionCard);
+      if (card?.type === 'SPELL') { 
+        if (m) {
+          castSpell(card.id, index, false);
+          setSelectedActionCard(null);
+        } else {
+          setError("Debes seleccionar un monstruo válido.");
+        }
+      }
+    }
+  };
+
+  const handleOpponentAvatarClick = () => {
+    if (!isMyTurn || isActionLocked) return;
+    const opponentId = Object.keys(gameState?.players || {}).find(id => id !== playerId);
+    
+    // Solo permitir clics aquí si hay un hechizo que selecciona al jugador (actualmente no hay, pero por si acaso)
+  };
 
   const clearSession = () => {
     localStorage.removeItem('duel_monster_room_id');
     setGameState(null);
+    setSelectedCards([]);
     window.location.reload();
+  };
+
+  const addCardToDeck = (cardId: string) => {
+    if (selectedCards.length >= 25) return;
+    const countInDeck = selectedCards.filter(id => id === cardId).length;
+    const baseCard = allCards.find(c => c.id === cardId);
+    let countOwned = userProfile?.cardInventory?.[cardId] || 0;
+    if (countOwned === 0 && baseCard && !baseCard.isUnlockable) {
+      countOwned = 1;
+    }
+    if (countInDeck < countOwned) {
+      setSelectedCards(prev => [...prev, cardId]);
+    }
+  };
+
+  const removeCardFromDeck = (index: number) => {
+    setSelectedCards(prev => {
+      const newCards = [...prev];
+      newCards.splice(index, 1);
+      return newCards;
+    });
+  };
+
+  const confirmDeck = () => {
+    socket?.emit('selectDeck', selectedCards);
   };
 
   if (!gameState) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-4">
-        <h1 className="text-4xl font-bold mb-8 text-blue-400">Duel Monsters</h1>
-        <div className="bg-slate-800 p-8 rounded-xl shadow-2xl w-full max-w-md border border-slate-700">
-          <button 
-            onClick={createRoom}
-            className="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-bold transition-all mb-4"
-          >
-            Crear Nueva Sala
-          </button>
-          <div className="relative flex items-center mb-4">
-            <div className="flex-grow border-t border-slate-600"></div>
-            <span className="flex-shrink mx-4 text-slate-400 text-sm italic">o únete a una</span>
-            <div className="flex-grow border-t border-slate-600"></div>
-          </div>
-          <input 
-            type="text" 
-            placeholder="ID de la Sala"
-            value={roomIdInput}
-            onChange={(e) => setRoomIdInput(e.target.value.toUpperCase())}
-            className="w-full bg-slate-700 border border-slate-600 p-3 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
-          />
-          <button 
-            onClick={joinRoom}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 py-3 rounded-lg font-bold transition-all"
-          >
-            Entrar a la Sala
-          </button>
-          {error && <p className="text-red-400 mt-4 text-center text-sm">{error}</p>}
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white p-4 md:p-8 overflow-y-auto relative">
+        <div className="absolute inset-0 pointer-events-none opacity-40 bg-[radial-gradient(circle_at_center,_rgba(30,41,59,0.5)_0%,_rgba(2,6,23,1)_100%)] z-0"></div>
+        
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <motion.div animate={{ y: [0, -20, 0], rotate: [12, 15, 12] }} transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }} className="absolute -top-10 -left-10 w-64 h-96 bg-blue-900/30 border border-blue-500/20 rounded-2xl blur-[4px] p-6 flex flex-col shadow-2xl">
+            <div className="w-full h-1/2 bg-black/30 rounded-xl mb-4"></div><div className="w-full h-4 bg-black/20 rounded mb-2"></div><div className="w-3/4 h-4 bg-black/20 rounded"></div>
+          </motion.div>
+          
+          <motion.div animate={{ y: [0, 30, 0], rotate: [-15, -10, -15] }} transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut', delay: 1 }} className="absolute top-1/4 -right-16 w-72 h-[28rem] bg-amber-900/20 border border-amber-500/20 rounded-2xl blur-[6px] p-6 flex flex-col shadow-2xl">
+            <div className="w-full h-1/2 bg-black/30 rounded-xl mb-4"></div><div className="w-full h-4 bg-black/20 rounded mb-2"></div><div className="w-1/2 h-4 bg-black/20 rounded"></div>
+          </motion.div>
+
+          <motion.div animate={{ y: [0, -25, 0], rotate: [25, 20, 25] }} transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut', delay: 2 }} className="absolute -bottom-20 left-1/4 w-56 h-80 bg-emerald-900/20 border border-emerald-500/20 rounded-2xl blur-[5px] p-5 flex flex-col shadow-2xl">
+            <div className="w-full h-1/2 bg-black/30 rounded-xl mb-4"></div><div className="w-full h-4 bg-black/20 rounded mb-2"></div><div className="w-2/3 h-4 bg-black/20 rounded"></div>
+          </motion.div>
         </div>
+        
+        <div className="relative z-10 flex flex-col items-center w-full max-w-5xl mt-8">
+          <h1 className="text-5xl md:text-6xl font-black mb-8 bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent uppercase tracking-widest text-center drop-shadow-2xl">
+            Duel Monsters
+          </h1>
+          
+          <div className="flex space-x-4 mb-8 bg-slate-900/60 p-2 rounded-xl border border-slate-700/50 backdrop-blur-md">
+            <button onClick={() => setMainMenuTab('PLAY')} className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all ${mainMenuTab === 'PLAY' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+              Jugar
+            </button>
+            <button onClick={() => { setMainMenuTab('COLLECTION'); if (playerId) socket?.emit('getProfile', playerId); }} className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all ${mainMenuTab === 'COLLECTION' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+              Colección
+            </button>
+          </div>
+
+          {mainMenuTab === 'PLAY' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
+              <div className="bg-slate-900/80 p-8 rounded-3xl shadow-[0_0_40px_rgba(245,158,11,0.05)] border border-amber-900/30 flex flex-col items-center justify-between relative overflow-hidden group backdrop-blur-sm min-h-[400px]">
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-yellow-500/5 z-0 group-hover:opacity-100 transition-opacity opacity-50"></div>
+                <div className="relative z-10 flex flex-col items-center w-full text-center">
+                  <div className="w-24 h-24 bg-amber-950/50 rounded-full flex items-center justify-center mb-6 border border-amber-800/50 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                    <span className="text-5xl">🗺️</span>
+                  </div>
+                  <h2 className="text-3xl font-black text-amber-400 mb-4 uppercase tracking-widest drop-shadow-lg">Modo Aventura</h2>
+                  <p className="text-slate-400 text-sm mb-8 leading-relaxed px-4">Enfréntate a la IA en una serie de duelos continuos. Desbloquea nuevas cartas cada 5 victorias, domina las disciplinas y demuestra tu conocimiento estratégico.</p>
+                </div>
+                <div className="relative z-10 w-full mt-auto">
+                  <button onClick={startAdventure} className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 py-4 rounded-xl font-black transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] transform hover:-translate-y-1 flex items-center justify-center space-x-3 cursor-pointer text-lg tracking-widest">
+                    <span>⚔️</span><span>INICIAR AVENTURA</span><span>⚔️</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-slate-900/80 p-8 rounded-3xl shadow-[0_0_40px_rgba(59,130,246,0.05)] border border-blue-900/30 flex flex-col items-center justify-between relative overflow-hidden group backdrop-blur-sm min-h-[400px]">
+                <div className="absolute inset-0 bg-gradient-to-bl from-blue-500/5 to-indigo-500/5 z-0 group-hover:opacity-100 transition-opacity opacity-50"></div>
+                <div className="relative z-10 flex flex-col items-center w-full text-center">
+                  <div className="w-24 h-24 bg-blue-950/50 rounded-full flex items-center justify-center mb-6 border border-blue-800/50 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                    <span className="text-5xl">🌐</span>
+                  </div>
+                  <h2 className="text-3xl font-black text-blue-400 mb-4 uppercase tracking-widest drop-shadow-lg">Multijugador</h2>
+                  <p className="text-slate-400 text-sm mb-8 leading-relaxed px-4">Desafía a otros duelistas en línea. Crea una sala privada para invitar a tus amigos o únete a una batalla existente mediante su código de acceso.</p>
+                </div>
+                <div className="relative z-10 w-full mt-auto space-y-5">
+                  <button onClick={createRoom} className="w-full bg-blue-600 hover:bg-blue-500 py-3.5 rounded-xl font-bold transition-all border border-blue-400/30 shadow-[0_0_15px_rgba(37,99,235,0.2)] hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] cursor-pointer tracking-wider">
+                    CREAR SALA PRIVADA
+                  </button>
+                  <div className="relative flex items-center w-full">
+                    <div className="flex-grow border-t border-slate-700/80"></div>
+                    <span className="flex-shrink mx-4 text-slate-500 text-[10px] font-mono tracking-widest uppercase">O Únete a Una</span>
+                    <div className="flex-grow border-t border-slate-700/80"></div>
+                  </div>
+                  <div className="flex w-full space-x-3">
+                    <input type="text" placeholder="ID SALA" value={roomIdInput} onChange={(e) => setRoomIdInput(e.target.value.toUpperCase())} className="w-2/3 bg-slate-950/80 border border-slate-700 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase text-center font-mono font-bold placeholder-slate-700 tracking-widest text-lg shadow-inner transition-all" />
+                    <button onClick={joinRoom} className="w-1/3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-black transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] flex items-center justify-center cursor-pointer tracking-wider text-sm">
+                      ENTRAR
+                    </button>
+                  </div>
+                  {error && <div className="absolute -bottom-14 left-0 w-full bg-red-950/80 border border-red-900/50 text-red-400 p-2 rounded-lg text-center text-xs animate-pulse font-mono">⚠️ {error}</div>}
+                </div>
+              </div>
+
+              <div className="bg-slate-900/80 p-8 rounded-3xl shadow-[0_0_40px_rgba(16,185,129,0.05)] border border-emerald-900/30 flex flex-col items-center justify-between relative overflow-hidden group backdrop-blur-sm min-h-[400px]">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 z-0 group-hover:opacity-100 transition-opacity opacity-50"></div>
+                <div className="relative z-10 flex flex-col items-center w-full text-center">
+                  <div className="w-24 h-24 bg-emerald-950/50 rounded-full flex items-center justify-center mb-6 border border-emerald-800/50 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                    <span className="text-5xl">📖</span>
+                  </div>
+                  <h2 className="text-3xl font-black text-emerald-400 mb-4 uppercase tracking-widest drop-shadow-lg">Manual de Juego</h2>
+                  <p className="text-slate-400 text-sm mb-8 leading-relaxed px-4">Conoce todas las reglas, estrategias y secretos de las disciplinas académicas. Domina las mecánicas y los iconos para asegurar la victoria.</p>
+                </div>
+                <div className="relative z-10 w-full mt-auto">
+                  <button onClick={() => setMainMenuTab('MANUAL')} className="w-full bg-emerald-600 hover:bg-emerald-500 py-3.5 rounded-xl font-bold transition-all border border-emerald-400/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] cursor-pointer tracking-wider">
+                    LEER MANUAL
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : mainMenuTab === 'COLLECTION' ? (
+            <div className="w-full bg-slate-900/80 p-6 md:p-8 rounded-3xl shadow-[0_0_40px_rgba(245,158,11,0.05)] border border-slate-700/50 backdrop-blur-sm flex flex-col min-h-[600px] mb-8">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-black text-amber-400 uppercase tracking-widest drop-shadow-lg flex items-center space-x-3">
+                  <span>📚</span><span>Tu Colección</span>
+                </h2>
+                <div className="bg-slate-950/60 border border-slate-800 px-4 py-2 rounded-lg font-mono text-sm">
+                  Cartas Obtenidas: <span className="text-amber-400 font-bold">{Object.values(userProfile?.cardInventory || {}).filter(c => c > 0).length}</span> / {allCards.length}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 overflow-y-auto pr-2 custom-scrollbar pb-12" style={{ maxHeight: '60vh' }}>
+                {allCards.map(card => {
+                  const hasCard = (userProfile?.cardInventory?.[card.id] || 0) > 0;
+                  return (
+                    <div key={card.id} className="relative flex flex-col items-center">
+                      {hasCard ? (
+                        <GameCardContent card={card} className="w-40 h-60" onPreview={() => setPreviewCardId(card.id)} />
+                      ) : (
+                        <div className="w-40 h-60 bg-slate-950 border-2 border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center p-4 relative overflow-hidden shadow-inner grayscale opacity-60">
+                          <span className="text-5xl mb-4 text-slate-700 opacity-50">🔒</span>
+                          <span className="text-[9px] text-slate-600 font-bold tracking-widest text-center uppercase">Carta Bloqueada</span>
+                        </div>
+                      )}
+                      <div className="mt-3 text-center">
+                        <span className={`text-[10px] px-2 py-1 rounded font-bold tracking-widest border ${hasCard ? (card.type === 'MONSTER' ? 'bg-amber-950/80 text-amber-400 border-amber-900/50' : 'bg-emerald-950/80 text-emerald-400 border-emerald-900/50') : 'bg-slate-950 text-slate-700 border-slate-800'}`}>
+                          {hasCard ? `x${userProfile?.cardInventory?.[card.id] || 0}` : 'MISTERIO'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="w-full bg-slate-900/80 p-6 md:p-8 rounded-3xl shadow-[0_0_40px_rgba(16,185,129,0.05)] border border-slate-700/50 backdrop-blur-sm flex flex-col min-h-[600px] mb-8 relative">
+               <button onClick={() => setMainMenuTab('PLAY')} className="absolute top-6 right-6 bg-slate-800 hover:bg-slate-700 border border-slate-600 px-4 py-2 rounded-lg font-bold text-slate-300">Volver</button>
+               <h2 className="text-3xl font-black text-emerald-400 mb-8 uppercase tracking-widest border-b border-emerald-900/50 pb-4">Manual de Juego</h2>
+               <div className="space-y-8 overflow-y-auto pr-4 custom-scrollbar max-h-[65vh]">
+                  
+                  <section>
+                    <h3 className="text-2xl font-bold text-blue-400 mb-3 flex items-center"><span className="text-3xl mr-2">📜</span> Reglas Básicas</h3>
+                    <div className="bg-slate-950/50 p-6 rounded-xl border border-slate-800 text-slate-300 leading-relaxed space-y-4">
+                      <p><strong className="text-blue-300">Objetivo del Juego:</strong> Reduce los Puntos de Vida (LP) de tu oponente a 0 para ganar el duelo.</p>
+                      <p><strong className="text-blue-300">Turnos y Energía:</strong> Cada jugador comienza su turno robando una carta y recuperando su Energía al máximo. La energía se utiliza para lanzar Hechizos.</p>
+                      <p><strong className="text-blue-300">El Tablero:</strong> Tienes 3 espacios (Slots) para invocar Monstruos. No puedes tener más de 3 monstruos al mismo tiempo en el campo.</p>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-2xl font-bold text-red-400 mb-3 flex items-center"><span className="text-3xl mr-2">⚔️</span> Combate y Mecánicas</h3>
+                    <div className="bg-slate-950/50 p-6 rounded-xl border border-slate-800 text-slate-300 leading-relaxed space-y-4">
+                      <p><strong className="text-red-300">Ataques:</strong> Los monstruos que ya estaban en el campo desde el turno anterior pueden atacar. Si atacas a una columna donde el oponente tiene un monstruo, tu monstruo hará daño a la <strong>Defensa (DEF)</strong> de ese monstruo.</p>
+                      <p><strong className="text-red-300">Daño Directo:</strong> Si atacas a una columna vacía, tu monstruo infligirá daño directamente a los <strong>LP</strong> del oponente igual a su poder de Ataque (ATK).</p>
+                      <p><strong className="text-red-300">Destrucción:</strong> Cuando la Defensa (DEF) de un monstruo llega a 0, este es destruido y enviado al cementerio.</p>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-2xl font-bold text-amber-400 mb-3 flex items-center"><span className="text-3xl mr-2">🎴</span> Tipos de Cartas</h3>
+                    <div className="bg-slate-950/50 p-6 rounded-xl border border-slate-800 text-slate-300 leading-relaxed grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                         <h4 className="font-bold text-lg text-amber-300 mb-2">🐉 Monstruos</h4>
+                         <p className="text-sm">Representan conceptos académicos materializados. Tienen puntos de <strong>ATK</strong> y <strong>DEF</strong>. Invocar monstruos no cuesta energía, pero ocupan espacio en el tablero.</p>
+                      </div>
+                      <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                         <h4 className="font-bold text-lg text-emerald-300 mb-2">✨ Hechizos</h4>
+                         <p className="text-sm">Son acciones tácticas que alteran el curso de la batalla. Lanzarlos consume <strong>Energía</strong>. Pueden afectar a monstruos aliados, monstruos enemigos o a los jugadores directamente.</p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-2xl font-bold text-purple-400 mb-3 flex items-center"><span className="text-3xl mr-2">🔍</span> Leyenda de Iconos</h3>
+                    <div className="bg-slate-950/50 p-6 rounded-xl border border-slate-800 text-slate-300 leading-relaxed grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2 text-red-500 font-bold">ATK</span>Poder de Daño</div>
+                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2 text-blue-500 font-bold">DEF</span>Resistencia</div>
+                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2 text-green-500">⚡</span>Energía para Hechizos</div>
+                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2 text-red-400 font-bold">LP</span>Puntos de Vida</div>
+                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2">🎓</span>Carrera Académica</div>
+                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2">📚</span>Concepto Académico</div>
+                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2 text-emerald-500 font-bold">COSTE</span>Costo de Energía</div>
+                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2">✨</span>Carta Hechizo</div>
+                    </div>
+                  </section>
+               </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 text-slate-600 text-xs font-mono tracking-widest">ENGINE VERSION 0.1.0 • ACADEMIC DUEL SYSTEM</div>
+
+        <AnimatePresence>
+          {previewCardId && (
+            <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} onClick={() => setPreviewCardId(null)} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 cursor-pointer">
+              <motion.div initial={{ scale: 0.8, y: 50, opacity: 0 }} animate={{ scale: 2.2, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 50, opacity: 0 }} transition={{ type: 'spring', damping: 20, stiffness: 300 }} onClick={(e) => e.stopPropagation()} className="relative cursor-default">
+                <div className="relative hover:scale-[1.02] transition-transform duration-300">
+                  <GameCardContent card={allCards.find(c => c.id === previewCardId)!} />
+                </div>
+                <button onClick={() => setPreviewCardId(null)} className="absolute -top-3 -right-3 bg-red-600 hover:bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold shadow-lg text-xs z-50 border border-red-800">X</button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -123,6 +696,7 @@ export default function GamePage() {
   const opponentId = Object.keys(gameState.players).find(id => id !== playerId);
   const opponent = opponentId ? gameState.players[opponentId] : null;
   const isMyTurn = gameState.turn === playerId;
+  const currentTheme = BOARD_THEMES[gameState.dominantTheme || 'NEUTRAL'] || BOARD_THEMES.NEUTRAL;
 
   if (gameState.phase === 'LOBBY') {
     return (
@@ -130,263 +704,858 @@ export default function GamePage() {
         <div className="bg-slate-800 p-8 rounded-xl shadow-2xl w-full max-w-md border border-slate-700">
           <h2 className="text-2xl font-bold mb-2 text-center">Sala: <span className="text-blue-400">{gameState.roomId}</span></h2>
           <p className="text-slate-400 text-center mb-8 text-sm">Comparte el ID con tu oponente</p>
-          
           <div className="space-y-4 mb-8">
             <div className="bg-slate-700 p-4 rounded-lg border border-slate-600">
-              <input 
-                type="text" 
-                placeholder="Tu nombre de duelista"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                onBlur={setName}
-                className="w-full bg-slate-800 border border-slate-700 p-2 rounded mb-4 focus:outline-none"
-              />
+              <input type="text" placeholder="Tu nombre de duelista" value={nameInput} onChange={(e) => setNameInput(e.target.value)} onBlur={setName} className="w-full bg-slate-800 border border-slate-700 p-2 rounded mb-4 focus:outline-none" />
               <div className="flex items-center justify-between">
                 <span>{me?.name} (Tú)</span>
-                <span className={me?.ready ? "text-emerald-400" : "text-amber-400"}>
-                  {me?.ready ? "✓ Listo" : "Esperando..."}
-                </span>
+                <span className={me?.ready ? 'text-emerald-400' : 'text-amber-400'}>{me?.ready ? '✓ Listo' : 'Esperando...'}</span>
               </div>
             </div>
-
             {opponent ? (
               <div className="bg-slate-700 p-4 rounded-lg border border-slate-600 flex items-center justify-between">
                 <span>{opponent.name}</span>
-                <span className={opponent.ready ? "text-emerald-400" : "text-amber-400"}>
-                  {opponent.ready ? "✓ Listo" : "Esperando..."}
-                </span>
+                <span className={opponent.ready ? 'text-emerald-400' : 'text-amber-400'}>{opponent.ready ? '✓ Listo' : 'Esperando...'}</span>
               </div>
             ) : (
-              <div className="bg-slate-700 p-4 rounded-lg border border-slate-600 border-dashed animate-pulse text-center text-slate-500">
-                Esperando oponente...
-              </div>
+              <div className="bg-slate-700 p-4 rounded-lg border border-slate-600 border-dashed animate-pulse text-center text-slate-500">Esperando oponente...</div>
             )}
           </div>
-
-          <button 
-            onClick={() => setReady(!me?.ready)}
-            className={`w-full py-4 rounded-lg font-bold transition-all ${
-              me?.ready 
-                ? "bg-slate-600 hover:bg-slate-500" 
-                : "bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-900/20"
-            }`}
-          >
-            {me?.ready ? "Cancelar" : "¡ESTOY LISTO!"}
+          <button onClick={() => setReady(!me?.ready)} className={`w-full py-4 rounded-lg font-bold transition-all ${me?.ready ? 'bg-slate-600 hover:bg-slate-500' : 'bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-900/20'}`}>
+            {me?.ready ? 'Cancelar' : '¡ESTOY LISTO!'}
           </button>
-          
-          <button onClick={clearSession} className="w-full mt-4 text-xs text-slate-500 hover:text-slate-400 underline">
-            Abandonar Sala
-          </button>
+          <button onClick={clearSession} className="w-full mt-4 text-xs text-slate-500 hover:text-slate-400 underline">Abandonar Sala</button>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="flex h-screen bg-slate-950 text-white overflow-hidden font-sans">
-      {/* Game Board */}
-      <div className="flex-grow relative flex flex-col p-4">
-        
-        {/* Opponent Area */}
-        <div className="h-1/3 flex flex-col items-center justify-start space-y-4 pt-4">
-          <div className="flex items-center space-x-8">
-            <div className="text-center">
-              <p className="text-xs text-slate-400 uppercase tracking-widest">Oponente</p>
-              <p className="text-xl font-bold text-red-400">{opponent?.name}</p>
-              <div className="flex space-x-1 mt-1 justify-center">
-                {[...Array(opponent?.energy || 0)].map((_, i) => (
-                  <div key={i} className="w-3 h-3 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.5)]"></div>
-                ))}
+  if (gameState.phase === 'PREPARATION') {
+    const availableCards = [...MONSTERS, ...SPELLS].filter(c => !c.isUnlockable || me?.unlockedCardIds?.includes(c.id));
+    const filteredCards = availableCards.filter(c => {
+      if (activeTab !== 'ALL' && c.type !== activeTab) return false;
+      if (selectedArea !== 'ALL' && c.area !== selectedArea) return false;
+      return true;
+    });
+
+    const selectedMonsters = selectedCards.filter(id => MONSTERS.find(m => m.id === id)).length;
+    const selectedSpells = selectedCards.length - selectedMonsters;
+    const isValidSize = selectedCards.length >= 5 && selectedCards.length <= 25;
+    const hasMonster = selectedMonsters >= 1;
+    const isDeckValid = isValidSize && hasMonster;
+
+    // Academic area distribution calculation
+    const areaDistribution: Record<string, number> = {};
+    selectedCards.forEach(id => {
+      const card = availableCards.find(c => c.id === id);
+      if (card && card.area) {
+        areaDistribution[card.area] = (areaDistribution[card.area] || 0) + 1;
+      }
+    });
+
+    let dominantArea = 'ALL';
+    let maxCount = 0;
+    Object.entries(areaDistribution).forEach(([area, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        dominantArea = area;
+      }
+    });
+
+    const areaStyles: Record<string, { bg: string, text: string, border: string, glow: string, icon: string, gradient: string }> = {
+      INFORMATICA: { bg: 'bg-blue-600/20', text: 'text-blue-400', border: 'border-blue-500/50', glow: 'shadow-[0_0_40px_rgba(59,130,246,0.2)]', icon: '💻', gradient: 'from-blue-900/40 to-slate-900' },
+      ARQUITECTURA: { bg: 'bg-orange-600/20', text: 'text-orange-400', border: 'border-orange-500/50', glow: 'shadow-[0_0_40px_rgba(249,115,22,0.2)]', icon: '📐', gradient: 'from-orange-900/40 to-slate-900' },
+      CIVIL: { bg: 'bg-stone-600/30', text: 'text-stone-300', border: 'border-stone-500/50', glow: 'shadow-[0_0_40px_rgba(168,162,158,0.2)]', icon: '🏗️', gradient: 'from-stone-800/40 to-slate-900' },
+      PETROLEO: { bg: 'bg-zinc-800/80', text: 'text-yellow-500', border: 'border-yellow-600/50', glow: 'shadow-[0_0_40px_rgba(202,138,4,0.2)]', icon: '🛢️', gradient: 'from-yellow-900/30 to-slate-900' },
+      METEOROLOGIA: { bg: 'bg-cyan-600/20', text: 'text-cyan-400', border: 'border-cyan-500/50', glow: 'shadow-[0_0_40px_rgba(6,182,212,0.2)]', icon: '🌪️', gradient: 'from-cyan-900/40 to-slate-900' },
+      ALL: { bg: 'bg-slate-800/50', text: 'text-slate-300', border: 'border-slate-700', glow: 'shadow-[0_0_30px_rgba(59,130,246,0.05)]', icon: '🌐', gradient: 'from-slate-900 to-blue-950/20' }
+    };
+
+    const currentDeckStyle = areaStyles[dominantArea] || areaStyles['ALL'];
+
+    return (
+      <div className={`flex h-screen ${currentTheme?.root || 'bg-slate-950'} text-white font-sans overflow-hidden relative`}>
+        <div className={`absolute inset-0 bg-gradient-to-br ${currentDeckStyle.gradient} opacity-40 transition-colors duration-1000`} />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/20 via-slate-900/80 to-black z-0 pointer-events-none" />
+        <div className="flex-grow flex p-4 gap-6 backdrop-blur-sm relative z-10 h-full overflow-hidden">
+          
+          {/* Left Side: Card Catalog */}
+          <div className="flex-grow flex flex-col w-2/3 h-full overflow-hidden bg-slate-900/60 rounded-3xl border border-slate-700/50 shadow-2xl backdrop-blur-md">
+            <div className="p-6 border-b border-slate-700/50 flex justify-between items-center">
+              <div>
+                <h2 className="text-3xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 drop-shadow-sm">Catálogo</h2>
+                <p className="text-slate-400 text-xs font-mono mt-1">Selecciona entre 5 y 15 cartas para tu estrategia.</p>
+              </div>
+              <div className="flex space-x-4 items-center">
+                <div className="flex space-x-2">
+                  {['ALL', 'MONSTER', 'SPELL'].map(tab => (
+                    <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-4 py-1.5 rounded-lg font-bold uppercase text-[10px] tracking-wider transition-all ${activeTab === tab ? 'bg-slate-700 text-white shadow-md' : 'bg-slate-900/50 text-slate-500 hover:bg-slate-800 border border-slate-800'}`}>
+                      {tab === 'ALL' ? 'Todas' : tab === 'MONSTER' ? 'Monstruos' : 'Hechizos'}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setShowExitConfirm(true)} className="px-4 py-1.5 bg-red-600/80 hover:bg-red-500 rounded-lg text-white font-bold text-[10px] uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(220,38,38,0.2)]">
+                  Salir
+                </button>
               </div>
             </div>
-            <div className="bg-slate-800 px-6 py-2 rounded-full border border-red-900/50 shadow-inner">
-              <p className="text-2xl font-mono font-bold text-red-500 tracking-tighter">{opponent?.hp} LP</p>
-            </div>
-          </div>
-          
-          <div className="flex space-x-2">
-            {[...Array(opponent?.hand.length || 0)].map((_, i) => (
-              <div key={i} className="w-16 h-24 bg-slate-800 border-2 border-slate-700 rounded-lg shadow-xl bg-[repeating-linear-gradient(45deg,#1e293b,#1e293b_10px,#0f172a_10px,#0f172a_20px)]"></div>
-            ))}
-          </div>
-        </div>
 
-        {/* Battlefield */}
-        <div className="flex-grow flex items-center justify-center">
-          <div className="w-full max-w-4xl grid grid-cols-2 gap-12 px-8">
-            <div className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-red-900/20 bg-red-900/5 h-64 relative">
-              {opponent?.field ? (
-                <MonsterCardDisplay monster={opponent.field} isOpponent />
-              ) : (
-                <span className="text-slate-700 text-sm uppercase tracking-widest font-bold">Zona de Monstruo</span>
-              )}
+            {/* Filter Area */}
+            <div className="px-6 py-3 border-b border-slate-800/50 bg-slate-950/50 flex space-x-2 overflow-x-auto custom-scrollbar">
+              {['ALL', 'INFORMATICA', 'ARQUITECTURA', 'CIVIL', 'PETROLEO', 'METEOROLOGIA'].map(area => {
+                const style = areaStyles[area] || areaStyles['ALL'];
+                const isSelected = selectedArea === area;
+                return (
+                  <button 
+                    key={area} 
+                    onClick={() => setSelectedArea(area)} 
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-md font-bold uppercase text-[10px] tracking-wider transition-all flex items-center space-x-2 ${isSelected ? `${style.bg} ${style.text} border ${style.border}` : 'bg-slate-900/50 text-slate-500 hover:bg-slate-800 border border-slate-800'}`}
+                  >
+                    <span>{style.icon}</span>
+                    <span>{area === 'ALL' ? 'Todas las Áreas' : area}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-blue-900/20 bg-blue-900/5 h-64 relative">
-              {me?.field ? (
-                <MonsterCardDisplay monster={me.field} />
-              ) : (
-                <span className="text-slate-700 text-sm uppercase tracking-widest font-bold">Zona de Monstruo</span>
-              )}
+            {/* Grid */}
+            <div className="flex-grow overflow-y-auto p-6 custom-scrollbar">
+              <motion.div layout className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <AnimatePresence>
+                  {filteredCards.map(card => {
+                    const countInDeck = selectedCards.filter(id => id === card.id).length;
+                    let countOwned = userProfile?.cardInventory?.[card.id] || 0;
+                    if (countOwned === 0 && !card.isUnlockable) countOwned = 1;
+                    const isMaxedOut = countInDeck >= countOwned || selectedCards.length >= 25;
+                    
+                    return (
+                      <motion.div 
+                        layout
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.5 }}
+                        whileHover={{ scale: isMaxedOut ? 1 : 1.05 }}
+                        key={card.id} 
+                        className={`relative flex flex-col items-center group ${isMaxedOut ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer'}`}
+                        onClick={() => { if (!isMaxedOut) addCardToDeck(card.id); }}
+                      >
+                        <GameCardContent card={card} className="w-32 h-48" onPreview={() => setPreviewCardId(card.id)} />
+                        
+                        <div className="mt-2 text-[10px] font-bold text-slate-400 bg-slate-900/80 px-2 py-1 rounded border border-slate-700 w-full text-center">
+                           Posees: {countOwned} | En Mazo: <span className={countInDeck > 0 ? 'text-blue-400' : ''}>{countInDeck}</span>
+                        </div>
+
+                        {!isMaxedOut && (
+                          <div className="absolute inset-0 bg-blue-500/0 group-hover:bg-blue-500/20 transition-colors rounded-xl flex items-center justify-center pointer-events-none">
+                             <span className="opacity-0 group-hover:opacity-100 text-4xl transform scale-50 group-hover:scale-100 transition-all font-black text-white drop-shadow-md">+</span>
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </motion.div>
             </div>
           </div>
-        </div>
 
-        {/* My Area */}
-        <div className="h-1/3 flex flex-col items-center justify-end space-y-6 pb-8">
-          <div className="flex space-x-4">
-            {me?.hand.map((card) => (
-              <button 
-                key={card.id}
-                onClick={() => {
-                  if (card.type === 'MONSTER' && isMyTurn) summonMonster(card.id);
-                  if (card.type === 'SPELL' && isMyTurn) castSpell(card.id);
-                }}
-                disabled={!isMyTurn || (card.type === 'MONSTER' && !!me.field)}
-                className="group relative transition-transform hover:-translate-y-4 disabled:hover:translate-y-0"
-              >
-                <div className={`w-32 h-48 rounded-xl border-2 p-3 flex flex-col shadow-2xl ${
-                  card.type === 'MONSTER' ? "bg-amber-900/90 border-amber-700" : "bg-emerald-900/90 border-emerald-700"
-                }`}>
-                  <p className="text-xs font-bold truncate mb-1">{card.name}</p>
-                  <div className="flex-grow bg-black/40 rounded flex items-center justify-center overflow-hidden">
-                    <span className="text-4xl opacity-20">{card.type === 'MONSTER' ? '⚔️' : '✨'}</span>
-                  </div>
-                  <div className="mt-2 text-[10px] leading-tight opacity-80">{card.description}</div>
-                  <div className="mt-2 flex justify-between text-[10px] font-mono font-bold">
-                    {card.type === 'MONSTER' ? (
-                      <>
-                        <span className="text-blue-300">ATK: {card.attack}</span>
-                        <span className="text-red-300">DEF: {card.defense}</span>
-                      </>
-                    ) : (
-                      <span className="text-emerald-400">COSTE: {card.energyCost}⚡</span>
-                    )}
-                  </div>
+          {/* Right Side: Selected Deck */}
+          <div className={`w-1/3 flex flex-col h-full bg-slate-950/90 rounded-3xl border ${currentDeckStyle.border} ${currentDeckStyle.glow} backdrop-blur-xl overflow-hidden relative transition-all duration-700`}>
+            <div className={`p-6 border-b border-slate-800 flex justify-between items-center bg-gradient-to-r ${currentDeckStyle.gradient} transition-colors duration-700`}>
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">{currentDeckStyle.icon}</span>
+                <h2 className={`text-xl font-black uppercase tracking-widest ${currentDeckStyle.text}`}>Tu Mazo</h2>
+              </div>
+              <span className={`text-sm font-mono font-bold px-2 py-1 rounded border ${!isValidSize ? 'bg-red-950/50 text-red-400 border-red-900/50 animate-pulse' : 'bg-slate-900 text-slate-300 border-slate-700'}`}>
+                {selectedCards.length} / 25
+              </span>
+            </div>
+
+            <div className="flex flex-col px-6 py-3 bg-slate-900/50 border-b border-slate-800">
+              <div className="flex justify-between text-[10px] font-mono tracking-widest text-slate-400 mb-2">
+                <span className={!hasMonster ? 'text-red-400 animate-pulse font-bold' : 'text-amber-400'}>Monstruos: {selectedMonsters}</span>
+                <span className="text-emerald-400">Hechizos: {selectedSpells}</span>
+              </div>
+              
+              {/* Academic Area Breakdown */}
+              {Object.keys(areaDistribution).length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {Object.entries(areaDistribution).map(([area, count]) => {
+                    if (!area) return null;
+                    const style = areaStyles[area] || areaStyles['ALL'];
+                    return (
+                      <div key={area} className={`flex items-center space-x-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${style.bg} ${style.text} ${style.border}`}>
+                        <span>{style.icon}</span>
+                        <span>{count}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-                {isMyTurn && (
-                  <div className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 flex items-center justify-center pointer-events-none border-2 ${
-                    card.type === 'MONSTER' ? "bg-blue-500/20 border-blue-400" : "bg-emerald-500/20 border-emerald-400"
-                  }`}>
-                    <span className={`${card.type === 'MONSTER' ? "bg-blue-600" : "bg-emerald-600"} text-[10px] px-2 py-1 rounded font-bold`}>
-                      {card.type === 'MONSTER' ? "INVOCAR" : "ACTIVAR"}
+              )}
+            </div>
+
+            {/* Deck List */}
+            <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
+              <motion.div layout className="flex flex-col space-y-2">
+                <AnimatePresence>
+                  {selectedCards.map((id, index) => {
+                    const card = availableCards.find(c => c.id === id);
+                    if (!card) return null;
+                    return (
+                      <motion.div
+                        layout
+                        initial={{ opacity: 0, x: 50 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -50 }}
+                        key={`${id}-${index}`}
+                        onClick={() => removeCardFromDeck(index)}
+                        className={`flex items-center p-2 rounded-xl cursor-pointer border hover:bg-slate-800 transition-colors group ${card.type === 'MONSTER' ? 'bg-slate-900/80 border-amber-900/30' : 'bg-slate-900/80 border-emerald-900/30'}`}
+                      >
+                        <div className={`w-10 h-14 flex-shrink-0 rounded flex items-center justify-center border ${card.type === 'MONSTER' ? 'bg-amber-950/50 border-amber-800/50 text-amber-500' : 'bg-emerald-950/50 border-emerald-800/50 text-emerald-500'}`}>
+                          <span className="text-lg">{card.type === 'MONSTER' ? '🐉' : '✨'}</span>
+                        </div>
+                        <div className="ml-3 flex-grow overflow-hidden">
+                          <h3 className="text-xs font-bold truncate text-slate-200 group-hover:text-white transition-colors">{card.name}</h3>
+                          <div className="flex space-x-2 mt-1">
+                            <span className="text-[9px] text-slate-500 uppercase">{card.type}</span>
+                            {card.area && (
+                              <span className={`text-[8px] px-1.5 py-0.5 rounded border flex items-center space-x-1 ${areaStyles[card.area]?.bg || ''} ${areaStyles[card.area]?.text || 'text-slate-400'} ${areaStyles[card.area]?.border || 'border-slate-700'}`}>
+                                <span>{areaStyles[card.area]?.icon}</span>
+                                <span>{card.area}</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="w-6 h-6 rounded-full bg-red-950/30 text-red-500 flex items-center justify-center text-xs font-bold border border-red-900/30 group-hover:bg-red-600 group-hover:text-white transition-all opacity-50 group-hover:opacity-100">
+                          -
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                  {selectedCards.length === 0 && (
+                     <div className="h-full w-full flex flex-col items-center justify-center text-slate-600 opacity-50 py-20 text-center">
+                       <span className="text-5xl mb-4">🎴</span>
+                       <p className="font-mono text-xs uppercase tracking-widest">El mazo está vacío</p>
+                     </div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="p-6 border-t border-slate-800 bg-slate-900/80">
+              <button 
+                  onClick={() => socket?.emit('selectDeck', selectedCards)} 
+                  disabled={!isDeckValid || me?.ready} 
+                  className={`w-full py-4 rounded-xl font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center ${isDeckValid && !me?.ready ? 'bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white shadow-blue-900/30 transform hover:-translate-y-1' : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'}`}
+                >
+                  {me?.ready ? 'Esperando al Oponente...' : 'Confirmar Mazo'}
+              </button>
+              
+              <div className="h-6 mt-3 text-center">
+                {!isValidSize && selectedCards.length > 0 && (
+                  <p className="text-red-400 text-[10px] font-bold animate-pulse">⚠️ Requiere de 5 a 25 cartas</p>
+                )}
+                {!hasMonster && selectedCards.length > 0 && (
+                  <p className="text-red-400 text-[10px] font-bold animate-pulse">⚠️ Requiere mínimo 1 monstruo</p>
+                )}
+                {opponentId && (
+                  <div className="text-[10px] font-mono mt-1">
+                    <span className="text-slate-400">Oponente: </span>
+                    <span className={opponent?.ready ? 'text-emerald-400 font-bold' : 'text-amber-400'}>
+                      {opponent?.ready ? '¡Listo!' : 'Preparando mazo...'}
                     </span>
                   </div>
                 )}
-              </button>
-            ))}
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center space-x-12">
+        </div>
+
+        <AnimatePresence>
+          {previewCardId && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} onClick={() => setPreviewCardId(null)} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 cursor-pointer">
+              <motion.div initial={{ scale: 0.8, y: 50, opacity: 0 }} animate={{ scale: 2.2, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 50, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="relative cursor-default">
+                <GameCardContent card={allCards.find(c => c.id === previewCardId)!} />
+                <button onClick={() => setPreviewCardId(null)} className="absolute -top-3 -right-3 bg-red-600 hover:bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold shadow-lg text-xs z-50 border border-red-800">X</button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showExitConfirm && (
+            <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+              <motion.div initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, y: 20, opacity: 0 }} className="bg-slate-800 p-8 rounded-2xl border-2 border-red-900/50 shadow-2xl text-center max-w-sm w-full">
+                <h3 className="text-2xl font-bold mb-4 text-slate-200">¿Abandonar Preparación?</h3>
+                <p className="text-slate-400 mb-8 text-sm">¿Seguro que quieres volver al menú principal?</p>
+                <div className="flex space-x-4">
+                  <button onClick={() => setShowExitConfirm(false)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-bold transition-all cursor-pointer">No</button>
+                  <button onClick={() => { setShowExitConfirm(false); clearSession(); }} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 rounded-lg font-bold transition-all cursor-pointer shadow-[0_0_15px_rgba(220,38,38,0.3)]">Sí, Salir</button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  const currentThemeStr = gameState.dominantTheme || 'NEUTRAL';
+
+  return (
+    <motion.div animate={currentThemeStr} variants={themeContainerVariants as any} className="flex min-h-screen text-white font-sans overflow-hidden relative bg-black custom-scrollbar">
+      <Layer1Background theme={currentThemeStr} />
+      <Layer2Grid theme={currentThemeStr} />
+      
+      {animatingCard?.type === 'ACID_RAIN' && (
+        <div className="fixed inset-0 pointer-events-none z-50">
+          <div className="absolute inset-0 rain-container"></div>
+          <div className="absolute inset-0 bg-green-900/20 mix-blend-color-burn animate-pulse"></div>
+        </div>
+      )}
+
+      <div className="flex-grow flex flex-col relative z-10">
+        <div className="absolute top-6 left-6 z-20 cursor-pointer" onClick={handleOpponentAvatarClick}>
+          <div className={`bg-slate-900/80 px-6 py-2 rounded-full border transition-all shadow-inner flex items-center space-x-4 border-red-900/50`}>
+            <p className="text-2xl font-mono font-bold text-red-500 tracking-tighter">
+              <AnimatedNumber value={opponent?.hp || 0} /> LP
+              {animatingCard?.targetId === opponentId && (
+                <span className="text-orange-500 ml-2 animate-pulse">-{animatingCard.damage}</span>
+              )}
+            </p>
+            <div className="w-px h-4 bg-slate-700"></div>
+            <div className="flex space-x-1">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className={`w-3 h-3 rounded-full ${i < (opponent?.energy || 0) ? 'bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.5)]' : 'bg-slate-700'}`}></div>
+              ))}
+            </div>
+            <div className="text-[10px] font-bold text-slate-500 ml-2 uppercase">{opponent?.name}</div>
+          </div>
+        </div>
+
+        <div className="h-32 flex justify-center items-start pt-6 space-x-[-15px]">
+          {opponent?.hand.map((_, i) => (
+            <div key={i} className="w-20 h-28 bg-gradient-to-br from-red-900 to-slate-900 rounded-xl border-2 border-red-900/50 shadow-xl transform hover:-translate-y-2 transition-transform flex items-center justify-center">
+              <div className="w-12 h-16 border border-red-800/30 rounded-lg flex items-center justify-center opacity-20">
+                <span className="text-3xl">🎴</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex-grow flex flex-col justify-center items-center py-8 relative w-full">
+          
+          <div className="grid grid-cols-3 gap-6 w-full max-w-2xl mb-8 z-10 justify-items-center">
+            {[0, 1, 2].map(i => {
+              const m = opponent?.monsterZone?.[i];
+              return (
+                <div key={`opp-slot-${i}`} onClick={() => handleOpponentSlotClick(i)} className={`w-36 h-52 flex items-center justify-center relative cursor-pointer`}>
+                  <motion.div variants={layer3SlotVariants as any} className="absolute inset-0 rounded-2xl -z-10" />
+                  <AnimatePresence mode="popLayout">
+                    {m && (
+                      <MonsterCardDisplay 
+                        monster={m} 
+                        isOpponent={true} 
+                        isAttacking={animatingCard?.id === m.instanceId && animatingCard.type === 'ATTACK_IMPACT'}
+                        isTakingDamage={animatingCard?.targetId === m.instanceId}
+                        damageAmount={animatingCard?.targetId === m.instanceId ? animatingCard.targetDamage : undefined}
+                        isDestroyed={animatingCard?.targetId === m.instanceId ? animatingCard.isDestroyed : false}
+                        onPreview={() => setPreviewCardId(m.id)}
+                      />
+                    )}
+                  </AnimatePresence>
+                  {!m && (
+                    <span className="text-slate-500/50 font-bold tracking-widest text-sm uppercase">Vacío</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          
+          <div className="grid grid-cols-3 gap-6 w-full max-w-2xl mt-8 z-10 justify-items-center">
+            {[0, 1, 2].map(i => {
+              const m = me?.monsterZone?.[i];
+              const isSelectedTarget = selectedActionCard && me?.hand.find(c => c.id === selectedActionCard)?.type === 'MONSTER' && !m;
+              return (
+                <div key={`my-slot-${i}`} onClick={() => handleMySlotClick(i)} className={`w-36 h-52 flex items-center justify-center relative cursor-pointer hover:-translate-y-2 transition-transform ${isSelectedTarget ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}>
+                  <motion.div variants={layer3SlotVariants as any} className="absolute inset-0 rounded-2xl -z-10" />
+                  <AnimatePresence mode="popLayout">
+                    {m && (
+                      <MonsterCardDisplay 
+                        monster={m} 
+                        isAttacking={animatingCard?.attackerId === m.instanceId && animatingCard.type === 'ATTACK_IMPACT'}
+                        isTakingDamage={animatingCard?.targetId === m.instanceId || animatingCard?.secondaryTargetId === m.instanceId}
+                        damageAmount={(animatingCard?.targetId === m.instanceId) ? animatingCard.targetDamage : ((animatingCard?.secondaryTargetId === m.instanceId) ? animatingCard.secondaryDamage : undefined)}
+                        isDestroyed={(animatingCard?.targetId === m.instanceId) ? animatingCard.isDestroyed : false}
+                        onPreview={() => setPreviewCardId(m.id)}
+                      />
+                    )}
+                  </AnimatePresence>
+                  {!m && (
+                    <span className="text-slate-500/50 font-bold tracking-widest text-sm uppercase">Vacío</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="h-[280px] border-t border-slate-800 bg-slate-900/90 backdrop-blur-md p-6 flex justify-between items-center relative z-20 shrink-0">
+          <div className="flex space-x-6 items-center">
+            
+            <div className="flex flex-col items-center justify-center">
+              <div className="text-center mb-2">
+                <span className="bg-slate-950/80 px-3 py-1 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-widest border border-slate-700">
+                  Mazo: {me?.deck.length || 0}
+                </span>
+              </div>
+              <button onClick={drawCard} disabled={!isMyTurn || me?.hasDrawnThisTurn || me?.deck.length === 0} className={`relative w-20 h-32 rounded-xl border-2 transition-all duration-300 group cursor-pointer ${!isMyTurn || me?.hasDrawnThisTurn || me?.deck.length === 0 ? 'bg-slate-800 border-slate-700 opacity-50 grayscale pointer-events-none' : 'bg-gradient-to-br from-indigo-800 to-slate-900 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:scale-105 hover:shadow-[0_0_20px_rgba(59,130,246,0.6)]'}`}>
+                <div className={`absolute -bottom-1 -right-1 w-full h-full rounded-xl border border-slate-700/50 -z-10 ${!isMyTurn || me?.hasDrawnThisTurn ? 'bg-slate-800' : 'bg-slate-900'}`}></div>
+                <div className={`absolute -bottom-2 -right-2 w-full h-full rounded-xl border border-slate-700/30 -z-20 ${!isMyTurn || me?.hasDrawnThisTurn ? 'bg-slate-800' : 'bg-slate-900'}`}></div>
+                <div className="w-full h-full flex flex-col items-center justify-center">
+                  <span className="text-3xl mb-1 filter drop-shadow-md group-hover:animate-bounce">🃏</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${(!isMyTurn || me?.hasDrawnThisTurn || me?.deck.length === 0) ? 'text-slate-500' : 'text-blue-300'}`}>
+                    {me?.hasDrawnThisTurn ? 'Robado' : (me?.deck.length === 0 ? 'Vacío' : 'Robar')}
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            <div className="w-px h-32 bg-slate-800 mx-2"></div>
+
+            <div className="flex space-x-4 overflow-x-auto custom-scrollbar px-2 pb-2 max-w-[50vw]">
+              <AnimatePresence>
+                {me?.hand.map((card, i) => (
+                <motion.button 
+                  key={card.instanceId || `hand-${i}`}
+                  layoutId={card.instanceId}
+                  initial={{ opacity: 0, y: 50, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0, rotate: 180 }}
+                  transition={{ type: 'spring', stiffness: 150, damping: 12 }}
+                  onClick={() => handleHandCardClick(card)}
+                  disabled={!isMyTurn || isActionLocked}
+                  className={`group relative transition-transform hover:-translate-y-4 disabled:hover:translate-y-0 text-left flex-shrink-0 w-36 h-52 ${selectedActionCard === card.id ? '-translate-y-6 ring-4 ring-blue-500 rounded-xl' : ''}`}
+                >
+                  <GameCardContent card={card} onPreview={() => setPreviewCardId(card.id)} />
+                  {isMyTurn && !isActionLocked && selectedActionCard !== card.id && (
+                    <div className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 flex items-center justify-center pointer-events-none border-2 ${card.type === 'MONSTER' ? 'bg-blue-500/20 border-blue-400' : 'bg-emerald-500/20 border-emerald-400'}`}>
+                      <span className={`${card.type === 'MONSTER' ? 'bg-blue-600' : 'bg-emerald-600'} text-[10px] px-2 py-1 rounded font-bold`}>
+                        {card.type === 'MONSTER' ? 'SELECCIONAR' : 'SELECCIONAR'}
+                      </span>
+                    </div>
+                  )}
+                  {selectedActionCard === card.id && (
+                    <div className="absolute -top-3 -right-3 bg-blue-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold z-10 animate-bounce">
+                      !
+                    </div>
+                  )}
+                </motion.button>
+              ))}
+            </AnimatePresence>
+            </div>
+          </div>
+
+          <div className="absolute right-6 top-1/2 -translate-y-1/2 flex flex-col items-end space-y-4 z-20">
             <div className="bg-slate-800 px-6 py-2 rounded-full border border-blue-900/50 shadow-inner flex items-center space-x-4">
-              <p className="text-2xl font-mono font-bold text-blue-500 tracking-tighter">{me?.hp} LP</p>
+              <p className="text-2xl font-mono font-bold text-blue-500 tracking-tighter">
+                <AnimatedNumber value={me?.hp || 0} /> LP
+                {animatingCard?.secondaryTargetId === playerId && (
+                  <span className="text-orange-500 ml-2 animate-pulse">-{animatingCard.secondaryDamage}</span>
+                )}
+                {animatingCard?.targetId === playerId && (
+                  <span className="text-orange-500 ml-2 animate-pulse">-{animatingCard.damage}</span>
+                )}
+              </p>
               <div className="w-px h-4 bg-slate-700"></div>
               <div className="flex space-x-1">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className={`w-3 h-3 rounded-full ${i < (me?.energy || 0) ? "bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]" : "bg-slate-700"}`}></div>
+                  <div key={i} className={`w-3 h-3 rounded-full ${i < (me?.energy || 0) ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]' : 'bg-slate-700'}`}></div>
                 ))}
               </div>
             </div>
 
             <div className="flex space-x-4">
+              {selectedActionCard && (
+                <button onClick={() => { setSelectedActionCard(null); }} className="bg-red-600/80 hover:bg-red-500 border border-red-500 px-8 py-2 rounded-lg font-bold transition-all shadow-lg shadow-red-900/20 uppercase text-sm tracking-widest">
+                  Cancelar Acción
+                </button>
+              )}
               <button 
-                onClick={attackBasic}
-                disabled={!isMyTurn || !me?.field}
-                className="bg-red-600 hover:bg-red-500 disabled:bg-slate-700 px-8 py-2 rounded-lg font-bold transition-all shadow-lg shadow-red-900/20 uppercase text-sm tracking-widest"
+                onClick={executeAttacks} 
+                disabled={!isMyTurn || isActionLocked || gameState.isFirstTurn || !me?.monsterZone.some(m => m && !m.hasAttacked)} 
+                className="bg-red-600 hover:bg-red-500 disabled:bg-slate-800 disabled:text-slate-500 px-8 py-2 rounded-lg font-bold transition-all border border-red-500 disabled:border-slate-700 shadow-[0_0_15px_rgba(220,38,38,0.2)] disabled:shadow-none uppercase text-sm tracking-widest"
               >
                 Atacar
               </button>
-              <button 
-                onClick={endTurn}
-                disabled={!isMyTurn}
-                className="bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 px-8 py-2 rounded-lg font-bold transition-all border border-slate-600 uppercase text-sm tracking-widest"
-              >
+              <button onClick={endTurn} disabled={!isMyTurn || isActionLocked} className="bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 px-8 py-2 rounded-lg font-bold transition-all border border-slate-600 uppercase text-sm tracking-widest">
                 Terminar Turno
               </button>
             </div>
           </div>
         </div>
 
-        <div className={`absolute top-4 right-4 px-6 py-2 rounded-full border transition-all ${
-          isMyTurn ? "bg-blue-600/20 border-blue-500 text-blue-400" : "bg-red-600/20 border-red-500 text-red-400"
-        }`}>
-          <span className="font-bold uppercase tracking-widest text-sm animate-pulse">
-            {isMyTurn ? "Tu Turno" : "Turno Oponente"}
-          </span>
+        <div className={`absolute top-4 right-4 px-6 py-2 rounded-full border transition-all ${isMyTurn ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-red-600/20 border-red-500 text-red-400'}`}>
+          <span className="font-bold uppercase tracking-widest text-sm animate-pulse">{isMyTurn ? 'Tu Turno' : 'Turno Oponente'}</span>
         </div>
       </div>
 
-      {/* Battle Log Sidebar */}
-      <div className="w-80 bg-slate-900 border-l border-slate-800 flex flex-col">
+      <div className={`w-80 border-l flex-shrink-0 z-50 flex flex-col transition-all duration-500 ${currentTheme?.sidebar || 'bg-slate-900 border-slate-800'}`}>
         <div className="p-4 border-b border-slate-800 bg-slate-800/50 flex justify-between items-center">
           <h3 className="font-bold text-slate-300 uppercase tracking-widest text-xs">Registro de Duelo</h3>
-          <button onClick={clearSession} className="text-[10px] text-red-500 hover:text-red-400 uppercase">Salir</button>
+          <button onClick={() => setShowExitConfirm(true)} className="text-[10px] text-red-500 hover:text-red-400 uppercase cursor-pointer">Salir</button>
         </div>
         <div className="flex-grow overflow-y-auto p-4 space-y-2 font-mono text-xs">
           {gameState.logs.map((log, i) => (
             <div key={i} className="text-slate-400 border-l-2 border-slate-700 pl-2 py-1 bg-slate-800/20 rounded-r">
-              <span className="text-slate-600 mr-2">[{i+1}]</span>
-              {log}
+              <span className="text-slate-600 mr-2">[{i+1}]</span>{log}
             </div>
           ))}
           <div ref={logEndRef} />
         </div>
-        <div className="p-4 bg-slate-950 text-[10px] text-slate-600 italic">
-          Duel Monsters Engine v0.1.0
+        <div className="p-4 bg-slate-950 text-[10px] text-slate-600 italic">Duel Monsters Engine v0.1.0</div>
+      </div>
+
+      <AnimatePresence>
+        {animatingCard?.type === 'SPELL_EFFECT' && <SpellEffectOverlay spellId={animatingCard.id} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showGameOver && (
+          <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(16px)' }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }} className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            {gameState.winner === playerId ? <Confetti /> : <BloodEffect />}
+            <motion.div initial={{ scale: 0.8, y: 50, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 50, opacity: 0 }} transition={{ type: 'spring', damping: 20, stiffness: 200, delay: 0.2 }} className="bg-slate-800 p-12 rounded-3xl border-4 border-amber-500 shadow-[0_0_100px_rgba(245,158,11,0.2)] text-center max-w-sm w-full">
+              <h2 className="text-6xl mb-6">{gameState.winner === playerId ? '🏆' : '💀'}</h2>
+              <h3 className="text-4xl font-bold mb-2 uppercase tracking-tighter">{gameState.winner === playerId ? '¡Victoria!' : 'Derrota'}</h3>
+              <p className="text-slate-400 mb-8">{gameState.winner === playerId ? 'Has dominado el campo de batalla.' : 'Tus monstruos han caído en combate.'}</p>
+              {opponentId === 'cpu' ? (
+                <div className="space-y-4">
+                  <button onClick={nextAdventure} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-black transition-all shadow-xl shadow-blue-900/40 uppercase tracking-widest cursor-pointer">Siguiente Enfrentamiento</button>
+                  <button onClick={clearSession} className="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 py-3 rounded-xl font-bold transition-all uppercase tracking-widest text-sm cursor-pointer">Abandonar Modo</button>
+                </div>
+              ) : (
+                <button onClick={clearSession} className="w-full bg-amber-500 hover:bg-amber-400 text-slate-900 py-4 rounded-xl font-black transition-all shadow-xl shadow-amber-900/40 uppercase tracking-widest cursor-pointer">Nuevo Duelo</button>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showExitConfirm && (
+          <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <motion.div initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, y: 20, opacity: 0 }} className="bg-slate-800 p-8 rounded-2xl border-2 border-red-900/50 shadow-2xl text-center max-w-sm w-full">
+              <h3 className="text-2xl font-bold mb-4 text-slate-200">¿Abandonar Duelo?</h3>
+              <p className="text-slate-400 mb-8 text-sm">¿Seguro que quieres abandonar el duelo? Perderás todo tu progreso en esta partida.</p>
+              <div className="flex space-x-4">
+                <button onClick={() => setShowExitConfirm(false)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-bold transition-all cursor-pointer">No</button>
+                <button onClick={() => { setShowExitConfirm(false); clearSession(); }} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 rounded-lg font-bold transition-all cursor-pointer shadow-[0_0_15px_rgba(220,38,38,0.3)]">Sí, Salir</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {previewCardId && (
+          <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} onClick={() => setPreviewCardId(null)} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 cursor-pointer">
+            <motion.div initial={{ scale: 0.8, y: 50, opacity: 0 }} animate={{ scale: 2.2, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 50, opacity: 0 }} transition={{ type: 'spring', damping: 20, stiffness: 300 }} onClick={(e) => e.stopPropagation()} className="relative cursor-default">
+              <div className="relative hover:scale-[1.02] transition-transform duration-300 w-44 h-64">
+                <GameCardContent card={allCards.find(c => c.id === previewCardId)!} />
+              </div>
+              <button onClick={() => setPreviewCardId(null)} className="absolute -top-3 -right-3 bg-red-600 hover:bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold shadow-lg text-xs z-50 border border-red-800">X</button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+function GameCardContent({ card, isOpponent, defensePercentage = 100, isTakingDamage = false, className = "", onPreview }: any) {
+  // Mock rarity mapping based on name length to match the visual variety in the image
+  const nameLen = card.name?.length || 0;
+  const rarityStr = card.rarity || (nameLen > 15 ? 'SR' : nameLen > 10 ? 'R' : nameLen > 6 ? 'UC' : 'C');
+  
+  let borderColor = 'border-slate-500';
+  let textColor = 'text-slate-300';
+  if (rarityStr === 'SR') { borderColor = 'border-blue-500'; textColor = 'text-blue-300'; }
+  else if (rarityStr === 'R') { borderColor = 'border-green-500'; textColor = 'text-green-400'; }
+  else if (rarityStr === 'C') { borderColor = 'border-amber-700'; textColor = 'text-amber-500'; }
+
+  return (
+    <div 
+      className={`w-full h-full rounded-xl border-[6px] ${borderColor} bg-[#0a0f1d] flex flex-col overflow-hidden relative group cursor-pointer ${className} ${isOpponent ? 'opacity-90' : ''}`}
+    >
+      {/* Inner thin grey border */}
+      <div className="absolute inset-0.5 rounded-lg border border-slate-600/60 pointer-events-none z-20"></div>
+
+      {onPreview && (
+        <div 
+          onClick={(e) => { e.stopPropagation(); onPreview(); }}
+          className="absolute top-2 right-2 bg-black/80 text-white w-6 h-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-50 flex items-center justify-center hover:bg-blue-600 shadow-lg text-[10px]" 
+          title="Ampliar"
+        >
+          🔍
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-1.5 z-10 border-b border-slate-800/50">
+        <span className="text-[14px] font-bold">{card.type === 'MONSTER' ? '🐉' : '✨'}</span>
+        <span className="text-[10px] font-serif font-bold text-slate-200 truncate">{card.name}</span>
+      </div>
+
+      {/* Main Image Box */}
+      <div className="mx-1.5 mt-1.5 bg-[#1c2438] h-[45%] rounded flex items-center justify-center relative overflow-hidden z-10 border-t border-slate-600/30 shadow-inner">
+        {/* Giant faint W */}
+        <span className="text-8xl font-serif text-slate-100/5 absolute select-none pointer-events-none">W</span>
+        
+        {/* Card Name Centered */}
+        <p className="text-center text-xs font-serif font-bold text-slate-200 z-10 px-2 drop-shadow-md">
+          {card.name}
+        </p>
+
+        {/* Small 'i' icon */}
+        <div 
+          onClick={(e) => { e.stopPropagation(); if (onPreview) onPreview(); }}
+          className="absolute bottom-1 left-1 w-4 h-4 rounded-full border border-slate-500 flex items-center justify-center text-[8px] text-slate-200 bg-[#0a0f1d]/80 hover:bg-blue-600 hover:text-white hover:border-blue-400 transition-colors cursor-pointer z-50">
+          i
         </div>
       </div>
 
-      {/* Game Over Modal */}
-      {gameState.phase === 'GAME_OVER' && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 p-12 rounded-3xl border-4 border-amber-500 shadow-[0_0_100px_rgba(245,158,11,0.2)] text-center max-w-sm w-full">
-            <h2 className="text-6xl mb-6">{gameState.winner === playerId ? "🏆" : "💀"}</h2>
-            <h3 className="text-4xl font-bold mb-2 uppercase tracking-tighter">
-              {gameState.winner === playerId ? "¡Victoria!" : "Derrota"}
-            </h3>
-            <p className="text-slate-400 mb-8">
-              {gameState.winner === playerId 
-                ? "Has dominado el campo de batalla." 
-                : "Tus monstruos han caído en combate."}
-            </p>
-            <button 
-              onClick={clearSession}
-              className="w-full bg-amber-500 hover:bg-amber-400 text-slate-900 py-4 rounded-xl font-black transition-all shadow-xl shadow-amber-900/40 uppercase tracking-widest"
-            >
-              Nuevo Duelo
-            </button>
+      {/* Description & Academic Info Text */}
+      <div className="px-2 py-1.5 flex-grow z-10 overflow-hidden flex flex-col">
+        {/* Career & Subject Section */}
+        {(card.area || (card as any).academicMetadata?.academicConcept) && (
+          <div className="flex flex-wrap gap-1 mb-1.5">
+            {card.area && (
+              <span className="bg-emerald-900/60 border border-emerald-700 text-emerald-300 text-[6px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider shadow-sm">
+                🎓 {card.area}
+              </span>
+            )}
+            {(card as any).academicMetadata?.academicConcept && (
+              <span className="bg-blue-900/60 border border-blue-700 text-blue-300 text-[6px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider shadow-sm">
+                📚 {(card as any).academicMetadata?.academicConcept}
+              </span>
+            )}
           </div>
+        )}
+        
+        <div className="flex-grow flex flex-col">
+          <p className="text-[7.5px] leading-tight text-slate-300 font-serif text-justify line-clamp-5">
+            {card.description}
+          </p>
+          {(card as any).academicMetadata?.academicConcept && (
+            <div className="mt-auto pt-1 border-t border-slate-700/50">
+              <p className="text-[6.5px] text-blue-300/90 italic font-serif leading-tight">
+                <span className="font-bold">Concepto:</span> {(card as any).academicMetadata?.academicConcept}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Stats Bottom */}
+      {card.type === 'MONSTER' ? (
+        <div className="flex w-full h-[15%] min-h-[36px] border-t border-slate-800 z-10 mt-auto bg-black/80">
+          <div className="flex-1 border-r border-slate-800 flex flex-col items-center justify-center">
+            <span className="text-[7px] font-bold text-red-600 drop-shadow-[0_0_2px_rgba(220,38,38,0.8)] tracking-widest">ATK</span>
+            <span className="text-base font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(220,38,38,0.5)] leading-none mt-0.5">{card.attack}</span>
+          </div>
+          <div className="flex-1 flex flex-col items-center justify-center relative overflow-hidden">
+            {/* Health Bar overlay */}
+            <div className="absolute bottom-0 left-0 h-0.5 bg-blue-500/50 transition-all duration-300" style={{ width: `${defensePercentage}%` }}></div>
+            <span className="text-[7px] font-bold text-blue-500 drop-shadow-[0_0_2px_rgba(59,130,246,0.8)] tracking-widest">DEF</span>
+            <span className="text-base font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(59,130,246,0.5)] leading-none mt-0.5"><AnimatedNumber value={card.defense} /></span>
+          </div>
+        </div>
+      ) : (
+        <div className="flex w-full h-[15%] min-h-[36px] border-t border-slate-800 z-10 mt-auto bg-black/80 items-center justify-center">
+          <span className="text-[9px] font-bold text-emerald-500 drop-shadow-[0_0_2px_rgba(16,185,129,0.8)] tracking-widest mr-2">COSTE</span>
+          <span className="text-base font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(16,185,129,0.5)] leading-none">{card.energyCost}⚡</span>
         </div>
       )}
     </div>
   );
 }
 
-function MonsterCardDisplay({ monster, isOpponent = false }: { monster: MonsterCard, isOpponent?: boolean }) {
+function MonsterCardDisplay({ monster, isOpponent = false, isAttacking = false, isTakingDamage = false, damageAmount, isDestroyed = false, onPreview }: any) {
+  const originalMonster = MONSTERS.find(m => m.id === monster.id);
+  const maxDefense = originalMonster ? originalMonster.defense : monster.defense;
+  const defensePercentage = Math.max(0, Math.min(100, (monster.defense / maxDefense) * 100));
+
+  const [isPresent, safeToRemove] = usePresence();
+
+  const isVortex = monster.activeEffects?.includes('VORTEX_ELIMINATION');
+  const isAcid = monster.activeEffects?.includes('ACID_MELTING');
+
+  if (!isPresent) {
+    if (isVortex) {
+      return <motion.div animate={{ opacity: 0 }} transition={{ duration: 0 }} onAnimationComplete={safeToRemove} className="hidden" />;
+    }
+    if (isAcid) {
+      return (
+        <div className="relative w-36 h-52 z-30 pointer-events-none">
+          <motion.div initial={{ opacity: 1, scaleY: 1, y: 0, filter: 'drop-shadow(0 0 15px #22c55e)' }} animate={{ opacity: 0, scaleY: 0, y: 120, filter: 'drop-shadow(0 0 30px #22c55e) blur(4px) contrast(150%)' }} transition={{ duration: 1.5, ease: 'easeIn' }} onAnimationComplete={safeToRemove} className="absolute inset-0 origin-bottom">
+            <GameCardContent card={monster} isOpponent={isOpponent} defensePercentage={defensePercentage} isTakingDamage={false} />
+          </motion.div>
+        </div>
+      );
+    }
+    
+    // Normal Destruction animation
+    return (
+      <div className="relative w-36 h-52 z-30 pointer-events-none">
+        <motion.div initial={{ x: 0, y: 0, opacity: 1, filter: 'grayscale(0%) blur(0px)' }} animate={{ x: -40, y: -40, opacity: 0, filter: 'grayscale(100%) blur(10px)', rotate: -15, scale: 0 }} transition={{ duration: 1.2, ease: 'easeOut' }} style={{ clipPath: 'polygon(0 0, 100% 0, 100% 40%, 0 60%)' }} className="absolute inset-0" onAnimationComplete={safeToRemove}>
+          <GameCardContent card={monster} isOpponent={isOpponent} defensePercentage={defensePercentage} isTakingDamage={false} />
+        </motion.div>
+        <motion.div initial={{ x: 0, y: 0, opacity: 1, filter: 'grayscale(0%) blur(0px)' }} animate={{ x: 40, y: 40, opacity: 0, filter: 'grayscale(100%) blur(10px)', rotate: 15, scale: 0 }} transition={{ duration: 1.2, ease: 'easeOut' }} style={{ clipPath: 'polygon(0 60%, 100% 40%, 100% 100%, 0 100%)' }} className="absolute inset-0">
+          <GameCardContent card={monster} isOpponent={isOpponent} defensePercentage={defensePercentage} isTakingDamage={false} />
+        </motion.div>
+        {/* Particle dust effect */}
+        {Array.from({ length: 15 }).map((_, i) => (
+          <motion.div key={i} initial={{ x: 0, y: 0, opacity: 1, scale: 1 }} animate={{ x: (Math.random() - 0.5) * 200, y: (Math.random() - 0.5) * 200, opacity: 0, scale: 0 }} transition={{ duration: 1 + Math.random() * 0.5, ease: 'easeOut' }} className="absolute top-1/2 left-1/2 w-3 h-3 bg-slate-300 rounded-full shadow-[0_0_15px_white]" />
+        ))}
+        <motion.div initial={{ scale: 0, opacity: 1, rotate: -15 }} animate={{ scale: [1, 2], opacity: [1, 0] }} transition={{ duration: 0.4, ease: 'easeOut' }} className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+           <div className="w-[200%] h-2 bg-white shadow-[0_0_30px_white]" />
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`w-40 h-60 rounded-xl border-4 shadow-2xl p-4 flex flex-col transition-all animate-in fade-in zoom-in duration-500 ${
-      isOpponent ? "bg-red-900/80 border-red-700" : "bg-blue-900/80 border-blue-700"
-    }`}>
-      <p className="text-sm font-black truncate mb-2">{monster.name}</p>
-      <div className="flex-grow bg-black/60 rounded-lg flex items-center justify-center relative overflow-hidden group">
-        <span className="text-6xl animate-pulse">🐉</span>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
-          <p className="text-[10px] italic leading-tight">{monster.description}</p>
-        </div>
-      </div>
-      <div className="mt-4 flex flex-col space-y-1">
-        <div className="flex justify-between items-center">
-          <span className="text-[10px] font-bold text-slate-400">ATK</span>
-          <span className="text-sm font-mono font-bold text-white">{monster.attack}</span>
-        </div>
-        <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-          <div className="h-full bg-amber-500 w-full"></div>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-[10px] font-bold text-slate-400">DEF</span>
-          <span className="text-sm font-mono font-bold text-white">{monster.defense}</span>
-        </div>
-      </div>
+    <motion.div 
+      layoutId={monster.instanceId}
+      animate={{ 
+        y: isAttacking ? (isOpponent ? 40 : -40) : 0, 
+        scale: isAttacking ? 1.05 : 1,
+        x: isTakingDamage ? [0, -8, 8, -8, 8, 0] : 0,
+        filter: isTakingDamage ? ['brightness(1)', 'brightness(1.5) drop-shadow(0 0 15px red)', 'brightness(1)'] : 'brightness(1)'
+      }}
+      transition={{ 
+        layout: { type: 'spring', stiffness: 150, damping: 12 },
+        type: 'spring', stiffness: 400, damping: 15, x: { duration: 0.3 }, filter: { duration: 0.3 }
+      }}
+      className={`relative z-20 w-36 h-52 ${isTakingDamage ? 'bg-red-950 rounded-xl' : ''}`}
+    >
+      <AnimatePresence>
+        {isTakingDamage && (
+          <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: [0, 1.5, 1], opacity: [0, 1, 0] }} transition={{ duration: 0.5, ease: 'easeOut' }} className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+            <span className="text-8xl font-black text-white drop-shadow-[0_0_20px_rgba(255,255,255,1)]">X</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {isTakingDamage && damageAmount !== undefined && (
+          <motion.div initial={{ opacity: 0, y: 0, scale: 0.5 }} animate={{ opacity: 1, y: -40, scale: 1.5 }} exit={{ opacity: 0, y: -60, scale: 1 }} transition={{ duration: 0.8 }} className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+            <span className="text-5xl font-black text-orange-500 drop-shadow-[0_0_15px_rgba(249,115,22,1)]" style={{ WebkitTextStroke: '2px black' }}>-{damageAmount}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {isVortex && (
+        <motion.div initial={{ scale: 0, opacity: 0, rotate: -180 }} animate={{ scale: [0, 2, 0], opacity: [0, 1, 1, 0], rotate: [0, 180, 360, 540] }} transition={{ duration: 1.5, ease: 'easeInOut' }} className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+           <div className="w-[140px] h-[140px] rounded-full blur-xl opacity-90" style={{ background: 'conic-gradient(from 0deg, #1e1b4b, #a855f7, #000, #1e1b4b, #a855f7, #000)' }} />
+           <div className="absolute inset-0 w-[140px] h-[140px] rounded-full blur-md opacity-100 animate-pulse" style={{ background: 'radial-gradient(circle, transparent 30%, #581c87 70%, #000 100%)' }} />
+        </motion.div>
+      )}
+      {isAcid && (
+        <motion.div initial={{ opacity: 0, scale: 2 }} animate={{ opacity: [0, 1, 0.8], scale: 1 }} transition={{ duration: 0.5, ease: 'easeOut' }} className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+           <span className="text-7xl drop-shadow-[0_0_20px_#22c55e]">☠️</span>
+        </motion.div>
+      )}
+      <GameCardContent card={monster} isOpponent={isOpponent} defensePercentage={defensePercentage} isTakingDamage={isTakingDamage} onPreview={onPreview} />
+    </motion.div>
+  );
+}
+
+function Confetti() {
+  const pieces = Array.from({ length: 80 }).map((_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    delay: Math.random() * 2,
+    duration: 2 + Math.random() * 3,
+    color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#14b8a6'][Math.floor(Math.random() * 7)],
+    size: 6 + Math.random() * 8
+  }));
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+      {pieces.map(p => (
+        <motion.div
+          key={p.id}
+          initial={{ y: -50, x: `${p.x}vw`, rotate: 0, opacity: 1 }}
+          animate={{ y: '120vh', rotate: 720, opacity: [1, 1, 0] }}
+          transition={{ duration: p.duration, delay: p.delay, ease: "linear", repeat: Infinity }}
+          style={{
+            position: 'absolute',
+            width: p.size,
+            height: p.size * 1.5,
+            backgroundColor: p.color,
+            top: 0
+          }}
+        />
+      ))}
     </div>
   );
 }
+
+function BloodEffect() {
+  const pieces = Array.from({ length: 150 }).map((_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    y: Math.random() * 100,
+    delay: Math.random() * 0.5,
+    duration: 0.5 + Math.random() * 1,
+    size: 2 + Math.random() * 15
+  }));
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden mix-blend-multiply">
+      {pieces.map(p => (
+        <motion.div
+          key={p.id}
+          initial={{ y: `${p.y - 10}vh`, x: `${p.x}vw`, scale: 0, opacity: 1, borderRadius: '50%' }}
+          animate={{ y: `${p.y + 20}vh`, scale: [0, 1, 0.8], opacity: [1, 0.8, 0], scaleY: [1, 2, 3] }}
+          transition={{ duration: p.duration, delay: p.delay, ease: "easeIn" }}
+          style={{
+            position: 'absolute',
+            width: p.size,
+            height: p.size,
+            backgroundColor: '#7f1d1d',
+            filter: 'blur(1px)'
+          }}
+        />
+      ))}
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 0.3 }} 
+        transition={{ duration: 1 }} 
+        className="absolute inset-0 bg-red-950 pointer-events-none" 
+      />
+    </div>
+  );
+}
+
+function SpellEffectOverlay({ spellId }: { spellId: string }) {
+  const effectMap: Record<string, string> = {
+    s1: '⚡', s2: '🛡️', s3: '🏰', s4: '🌧️', s5: '🌀', s6: '💥', s7: '🌫️',
+    s8: '🛢️', s9: '🔗', s10: '📉', s11: '🧱', s12: '🧠', s13: '🔙',
+    s14: '🔄', s15: '📚', s16: '😵', s17: '🤝', s18: '🔥', s19: '❤️‍🩹',
+    s20: '📊', s21: '🏃', s22: '🥵', s23: '🤸'
+  };
+  const emoji = effectMap[spellId] || '✨';
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0, rotate: -180 }} 
+      animate={{ opacity: [0, 1, 1, 0], scale: [0, 2, 2, 3], rotate: 0 }} 
+      transition={{ duration: 1.5, times: [0, 0.2, 0.8, 1] }} 
+      className="fixed inset-0 flex items-center justify-center pointer-events-none z-[100]"
+    >
+       <div className="text-[15rem] filter drop-shadow-[0_0_50px_rgba(168,85,247,0.8)]">{emoji}</div>
+    </motion.div>
+  );
+}
+

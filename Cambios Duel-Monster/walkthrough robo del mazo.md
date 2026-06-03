@@ -1,0 +1,30 @@
+# Walkthrough: Sistema de Robo Manual de Cartas
+
+Se han completado todas las modificaciones necesarias para implementar el sistema de robo manual en lugar del robado automático. Ahora, robar cartas del mazo es una decisión estratégica explícita que el jugador debe realizar cada turno.
+
+## Cambios Realizados
+
+### 1. Interfaz Gráfica (`page.tsx`)
+- **Componente de Mazo Visual**: Añadido en la esquina inferior izquierda del campo de batalla.
+- El mazo muestra cuántas cartas restan.
+- Destellos dorados y una sutil animación te indicarán si puedes robar.
+- Se deshabilita y se torna gris una vez robada la carta o en el turno del oponente.
+- Se envía el evento `drawCard` al servidor cuando se hace clic.
+
+### 2. Estructuras de Datos (`packages/game-types`)
+- Añadido el atributo `hasDrawnThisTurn` al estado de cada jugador (`PlayerState`).
+- Nuevo evento `drawCard` en la interfaz `ClientToServerEvents`.
+
+### 3. Lógica Central (`duel.socket.ts` y `duel.service.ts`)
+- **Bloqueo Automático Desactivado**: El juego ya no roba cartas automáticamente al principio del turno ni al invocar un monstruo.
+- **Nuevo Evento `drawCard`**: Implementado con validación de una sola vez por turno.
+- **Fin del Juego Integrado**: Si intentas robar carta y tu mazo está vacío, perderás la partida instantáneamente.
+- **Recolección de Datos**: El hechizo `s5` ("Recolección de Datos") ahora llama directamente a la función de robar carta sin afectar el límite de `hasDrawnThisTurn` de tu turno.
+- **Inteligencia Artificial**: La CPU fue actualizada para "hacer clic" (simuladamente) en su mazo de forma automática y manual al principio de su bucle de ataque, asegurando que pueda jugar sin quedarse trabada.
+
+## Verificación
+
+- Inicia una nueva partida. Notarás que en tu turno ya no se te reponen cartas automáticamente.
+- Da clic en el mazo ubicado en la esquina inferior izquierda para obtener tu carta correspondiente.
+- Lanza "Recolección de Datos" para comprobar que robas una carta extra y sigues teniendo la opción de usar el mazo normal si no lo has hecho.
+- Verás en los registros cómo la CPU también realiza su proceso de robo manual.
