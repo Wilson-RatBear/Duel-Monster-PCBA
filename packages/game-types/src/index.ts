@@ -35,7 +35,7 @@ export interface SpellCard extends BaseCard {
   energyCost: number;
   instanceId?: string;
   activeEffects?: string[];
-  targetType?: 'SINGLE' | 'AOE';
+  targetType?: 'SINGLE' | 'AOE' | 'NONE';
 }
 
 export type Card = MonsterCard | SpellCard;
@@ -53,6 +53,7 @@ export interface PlayerState {
   hasDrawnThisTurn?: boolean;
   unlockedCardIds?: string[];
   activeEffects?: string[];
+  statusEffects?: string[];
   cardInventory?: Record<string, number>;
 }
 
@@ -101,6 +102,7 @@ export interface ClientToServerEvents {
   joinAdventure: (playerId: string) => void;
   nextAdventureEncounter: (playerId: string) => void;
   drawCard: () => void;
+  executeAttacks: () => void;
 }
 
 export const MONSTERS: MonsterCard[] = [
@@ -116,8 +118,6 @@ export const MONSTERS: MonsterCard[] = [
   { id: 'm10', name: 'Guardián del Pozo', type: 'MONSTER', description: 'Protege las reservas de energía.', attack: 1900, defense: 2200, basicAttackName: 'Llamarada', specialAttackName: 'Erupción', specialAttackCost: 3, area: 'PETROLEO', academicMetadata: { careerArea: 'PETROLEO' as CareerArea, academicConcept: 'Concepto General' }, isUnlockable: true }
 ,
   // Pedagogical Monsters - Calculo
-  { id: 'm11', name: 'Límes, Guardián del Infinito', type: 'MONSTER', description: 'Metáfora: Límite al Infinito. No puede ser destruido por daño exacto.', attack: 2000, defense: 2000, basicAttackName: 'Acercamiento Asintótico', specialAttackName: 'Infinito', specialAttackCost: 2, area: 'CALCULO', academicMetadata: { careerArea: 'CALCULO', academicConcept: 'Límites' } },
-  { id: 'm12', name: 'Continuidad Rota', type: 'MONSTER', description: 'Anula los efectos en cadena de los hechizos enemigos durante el turno.', attack: 1500, defense: 1800, basicAttackName: 'Corte', specialAttackName: 'Discontinuidad', specialAttackCost: 2, area: 'CALCULO', academicMetadata: { careerArea: 'CALCULO', academicConcept: 'Continuidad' } },
   // Lógica
   { id: 'm13', name: 'Predicado Universal', type: 'MONSTER', description: 'Su daño penetra a todos los monstruos defensores simultáneamente (Para todo x).', attack: 1800, defense: 1000, basicAttackName: 'Cuantificador', specialAttackName: 'Penetración Universal', specialAttackCost: 3, area: 'LOGICA', academicMetadata: { careerArea: 'LOGICA', academicConcept: 'Predicados' } },
   { id: 'm14', name: 'Tautología, el Inmutable', type: 'MONSTER', description: 'Sus estadísticas no pueden ser alteradas.', attack: 2200, defense: 2200, basicAttackName: 'Verdad Absoluta', specialAttackName: 'Inmutabilidad', specialAttackCost: 3, area: 'LOGICA', academicMetadata: { careerArea: 'LOGICA', academicConcept: 'Tautología' } },
@@ -146,6 +146,8 @@ export const SPELLS: SpellCard[] = [
   { id: 's9', name: 'Regla de la Cadena', type: 'SPELL', description: 'Permite que un monstruo aliado ataque dos veces.', energyCost: 2, area: 'CALCULO', targetType: 'SINGLE', academicMetadata: { careerArea: 'CALCULO', academicConcept: 'Regla de la Cadena' } },
   { id: 's10', name: 'Derivada de la Constante', type: 'SPELL', description: 'Reduce el ATK de un monstruo enemigo a 0.', energyCost: 2, area: 'CALCULO', targetType: 'SINGLE', academicMetadata: { careerArea: 'CALCULO', academicConcept: 'Derivada' } },
   { id: 's11', name: 'Asíntota Vertical', type: 'SPELL', description: 'Detiene un ataque directo creando una barrera infinita de Defensa.', energyCost: 1, area: 'CALCULO', targetType: 'SINGLE', academicMetadata: { careerArea: 'CALCULO', academicConcept: 'Asíntotas' } },
+  { id: 's24', name: 'Límites, Guardián del Infinito', type: 'SPELL', description: 'Aumenta el ATK de un aliado basado en la cantidad de monstruos en tu cementerio.', energyCost: 2, area: 'CALCULO', targetType: 'SINGLE', academicMetadata: { careerArea: 'CALCULO', academicConcept: 'Límites' } },
+  { id: 's25', name: 'Continuidad Rota', type: 'SPELL', description: 'Anula la activación de los hechizos enemigos durante el turno.', energyCost: 2, area: 'CALCULO', targetType: 'NONE', academicMetadata: { careerArea: 'CALCULO', academicConcept: 'Continuidad' } },
   // Lógica
   { id: 's12', name: 'Modus Ponens', type: 'SPELL', description: 'Si controlas una Premisa, invoca una Conclusión directamente desde tu mano al campo al azar.', energyCost: 2, area: 'LOGICA', targetType: 'NONE', academicMetadata: { careerArea: 'LOGICA', academicConcept: 'Modus Ponens' } },
   { id: 's13', name: 'Contradicción Kaelisk', type: 'SPELL', description: 'Robas 1 carta adicional de tu mazo.', energyCost: 2, area: 'LOGICA', targetType: 'NONE', academicMetadata: { careerArea: 'LOGICA', academicConcept: 'Contradicción' } },
@@ -163,3 +165,33 @@ export const SPELLS: SpellCard[] = [
   { id: 's22', name: 'Fatiga Muscular', type: 'SPELL', description: 'El atacante pierde 500 ATK permanentemente.', energyCost: 1, area: 'FISICO', targetType: 'SINGLE', academicMetadata: { careerArea: 'FISICO', academicConcept: 'Fatiga' } },
   { id: 's23', name: 'Flexibilidad Táctica', type: 'SPELL', description: 'Devuelve un monstruo aliado a tu mano y roba una carta.', energyCost: 1, area: 'FISICO', targetType: 'SINGLE', academicMetadata: { careerArea: 'FISICO', academicConcept: 'Flexibilidad' } }
 ];
+
+export const getCardCareers = (area?: string): string[] => {
+  if (!area) return ['INFORMATICA'];
+  const mappedArea = area.toUpperCase();
+  switch (mappedArea) {
+    case 'INFORMATICA':
+      return ['INFORMATICA', 'CIVIL'];
+    case 'CIVIL':
+      return ['CIVIL'];
+    case 'PETROLEO':
+      return ['PETROLEO'];
+    case 'ARQUITECTURA':
+      return ['ARQUITECTURA'];
+    case 'METEOROLOGIA':
+      return ['METEOROLOGIA'];
+    case 'CALCULO':
+      return ['INFORMATICA', 'PETROLEO', 'CIVIL'];
+    case 'LOGICA':
+      return ['INFORMATICA'];
+    case 'LENGUAJE':
+      return ['INFORMATICA', 'PETROLEO', 'CIVIL', 'ARQUITECTURA'];
+    case 'DESARROLLO':
+      return ['INFORMATICA', 'PETROLEO'];
+    case 'FISICO':
+      return ['INFORMATICA', 'CIVIL', 'ARQUITECTURA'];
+    case 'NEUTRAL':
+    default:
+      return ['INFORMATICA', 'PETROLEO', 'CIVIL', 'ARQUITECTURA', 'METEOROLOGIA'];
+  }
+};

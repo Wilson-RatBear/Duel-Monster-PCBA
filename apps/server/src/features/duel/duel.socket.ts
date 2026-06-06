@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
-import { GameState, PlayerState, MonsterCard, SpellCard, ClientToServerEvents, ServerToClientEvents, MONSTERS, SPELLS, Card } from '@repo/game-types';
+import { GameState, PlayerState, MonsterCard, SpellCard, ClientToServerEvents, ServerToClientEvents, MONSTERS, SPELLS, Card, getCardCareers } from '@repo/game-types';
 import { getUserProfile, addStudentProgress } from './user.service.js';
 import { createInitialPlayerState as createCpuPlayerState } from './duel.service.js';
 import { validateAcademicAction } from './academic-validator.js';
@@ -46,14 +46,19 @@ function updateDominantTheme(game: GameState) {
 
   for (const player of Object.values(game.players)) {
     for (const monster of player.monsterZone) {
-      if (monster && monster.area && monster.area !== 'NEUTRAL') {
-        counts[monster.area] = (counts[monster.area] || 0) + 1;
-        totalMonsters++;
+      if (monster && monster.area) {
+        const careers = getCardCareers(monster.area);
+        for (const career of careers) {
+          if (career !== 'NEUTRAL') {
+            counts[career] = (counts[career] || 0) + 1;
+            totalMonsters++;
+          }
+        }
       }
     }
   }
 
-  if (totalMonsters === 0) {
+  if (totalMonsters === 0 || Object.keys(counts).length === 0) {
     game.dominantTheme = 'NEUTRAL';
     return;
   }
@@ -341,7 +346,6 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
         masteryPoints: 5
       });
 
-      updateDominantTheme(game);
       io.to(roomId).emit('gameUpdate', game);
     });
 
@@ -381,6 +385,11 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
 
       const spell = player.hand[cardIndex] as SpellCard;
 
+      if (player.statusEffects && player.statusEffects.includes('SILENCE')) {
+        socket.emit('error', 'Tus hechizos han sido anulados por Continuidad Rota este turno.');
+        return;
+      }
+
       const validation = validateAcademicAction(spell, game, playerId!);
       if (!validation.success) {
         socket.emit('error', validation.message || 'Hechizo no permitido por regla académica.');
@@ -406,7 +415,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
         targetMonster = game.players[targetOwnerId].monsterZone[targetIndex];
       }
 
-      const allySpells = ['s2', 's3', 's9', 's11', 's18', 's23'];
+      const allySpells = ['s2', 's3', 's9', 's11', 's18', 's23', 's24'];
       const enemySpells = ['s5', 's6', 's10', 's16', 's20', 's22'];
       
       if (allySpells.includes(spell.id) && !isAllyTarget) {
@@ -460,7 +469,6 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
                     games[roomId].players[opponentId].monsterZone[idx] = null;
                   }
                 });
-                updateDominantTheme(games[roomId]);
                 io.to(roomId).emit('gameUpdate', games[roomId]);
                 checkGameOver(games[roomId], playerId!, opponentId, io, roomId);
               }
@@ -481,7 +489,6 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
                 games[roomId].players[opponentId].deck.push(m);
                 games[roomId].players[opponentId].monsterZone[targetIndex!] = null;
               }
-              updateDominantTheme(games[roomId]);
               io.to(roomId).emit('gameUpdate', games[roomId]);
             }
           }, 1500);
@@ -501,7 +508,6 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
                 games[roomId].players[opponentId].defeatedMonsters.push(m);
                 games[roomId].players[opponentId].monsterZone[targetIndex!] = null;
               }
-              updateDominantTheme(games[roomId]);
               io.to(roomId).emit('gameUpdate', games[roomId]);
               checkGameOver(games[roomId], playerId!, opponentId, io, roomId);
             }
@@ -546,9 +552,13 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
           }
           break;
         case 's13': 
-          player.hand.push({ ...player.deck[0], instanceId: Math.random().toString(36).substring(7) });
-          player.deck.shift();
-          game.logs.push(`${player.name} roba 1 carta mediante Contradicción.`);
+          if (player.deck.length > 0) {
+            player.hand.push({ ...player.deck[0], instanceId: Math.random().toString(36).substring(7) });
+            player.deck.shift();
+            game.logs.push(`${player.name} roba 1 carta mediante Contradicción.`);
+          } else {
+            game.logs.push(`Contradicción Kaelisk no puede robar carta porque el mazo está vacío.`);
+          }
           break;
         case 's14': 
           [...player.monsterZone, ...opponent.monsterZone].forEach(m => {
@@ -562,9 +572,11 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
           break;
         case 's15': 
           if (player.hand.length === 2) { 
-             player.hand.push(player.deck.shift()!);
-             player.hand.push(player.deck.shift()!);
-             game.logs.push(`${player.name} roba 2 cartas por Sintaxis Perfecta.`);
+             const card1 = player.deck.shift();
+             if (card1) player.hand.push(card1);
+             const card2 = player.deck.shift();
+             if (card2) player.hand.push(card2);
+             game.logs.push(`${player.name} roba hasta 2 cartas por Sintaxis Perfecta.`);
           }
           break;
         case 's16': 
@@ -618,8 +630,20 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
           if (!isAllyTarget) { socket.emit('error', 'Debes apuntar a un aliado.'); return; }
           player.hand.push(targetMonster);
           player.monsterZone[targetIndex!] = null;
-          player.hand.push(player.deck.shift()!);
+          const drawnCard = player.deck.shift();
+          if (drawnCard) player.hand.push(drawnCard);
           game.logs.push(`${player.name} devuelve un monstruo a la mano y roba una carta.`);
+          break;
+        case 's24': 
+          if (!isAllyTarget) { socket.emit('error', 'Debes apuntar a un aliado.'); return; }
+          const infiniteBoost = player.defeatedMonsters.length * 500;
+          targetMonster.attack += infiniteBoost;
+          game.logs.push(`${targetMonster.name} sufre un acercamiento asintótico al infinito, ganando ${infiniteBoost} ATK por los monstruos en el cementerio.`);
+          break;
+        case 's25': 
+          opponent.statusEffects = opponent.statusEffects || [];
+          opponent.statusEffects.push('SILENCE');
+          game.logs.push(`Continuidad Rota: ${opponent.name} no puede activar hechizos en su próximo turno.`);
           break;
       }
 
@@ -657,7 +681,6 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       const executeNextAttack = (attackersIndex: number) => {
         if (attackersIndex >= readyAttackers.length || !games[roomId]) {
           if (games[roomId]) {
-            updateDominantTheme(games[roomId]);
             io.to(roomId).emit('gameUpdate', games[roomId]);
           }
           return;
@@ -804,7 +827,6 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
               games[roomId].logs.push(`${targetMonster.name} ha sido destruido.`);
               games[roomId].players[opponentId].defeatedMonsters.push(targetMonster);
               games[roomId].players[opponentId].monsterZone[targetIndex] = null;
-              updateDominantTheme(games[roomId]);
               
               if (damage > 0) {
                 games[roomId].players[opponentId].hp -= damage;
@@ -842,7 +864,13 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       if (nextPlayer.energy < 3) nextPlayer.energy += 1;
       nextPlayer.hasDrawnThisTurn = false;
       
+      const currentPlayer = game.players[playerId!];
+      if (currentPlayer.statusEffects) {
+        currentPlayer.statusEffects = currentPlayer.statusEffects.filter((e: string) => e !== 'SILENCE' && e !== 'FOG');
+      }
+
       game.logs.push(`Turno de ${nextPlayer.name}.`);
+      updateDominantTheme(game);
       io.to(roomId).emit('gameUpdate', game);
       
       if (opponentId === 'cpu') {
@@ -941,6 +969,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
             if (nextPlayer.energy < 3) nextPlayer.energy += 1;
             nextPlayer.hasDrawnThisTurn = false;
             game.logs.push(`Turno de ${nextPlayer.name}.`);
+            updateDominantTheme(game);
             io.to(roomId).emit('gameUpdate', game);
           }, 1500);
 

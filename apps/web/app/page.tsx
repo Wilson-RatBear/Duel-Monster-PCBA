@@ -13,7 +13,8 @@ import {
   SPELLS,
   Card,
   SpellCard,
-  UserProfile
+  UserProfile,
+  getCardCareers
 } from '@repo/game-types';
 
 function AnimatedNumber({ value }: { value: number }) {
@@ -40,14 +41,24 @@ const SOCKET_URL = 'http://localhost:3001';
 
 const BOARD_THEMES: Record<string, any> = {
   NEUTRAL: {
-    root: 'bg-slate-950',
-    board: 'bg-slate-950/50',
-    opponentSlot: 'border-red-900/20 bg-red-900/5',
-    mySlot: 'border-blue-900/20 bg-blue-900/5',
-    text: 'text-slate-400',
-    sidebar: 'bg-slate-900 border-slate-800',
-    highlight: 'text-blue-400',
-    particles: null
+    root: 'bg-slate-950 bg-[radial-gradient(ellipse_at_center,_rgba(30,27,75,0.8)_0%,_rgba(2,6,23,1)_100%)]',
+    board: 'bg-indigo-950/20 border border-indigo-900/20 shadow-[inset_0_0_50px_rgba(49,46,129,0.3)]',
+    opponentSlot: 'border-purple-900/30 bg-purple-900/10 shadow-[inset_0_0_20px_rgba(88,28,135,0.2)]',
+    mySlot: 'border-blue-900/40 bg-blue-900/20 shadow-[inset_0_0_30px_rgba(30,58,138,0.3)]',
+    text: 'text-indigo-300',
+    sidebar: 'bg-slate-900/80 border-slate-800',
+    highlight: 'text-purple-400',
+    particles: (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-60">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.15)_1px,transparent_1px)] bg-[size:30px_30px] opacity-20 animate-pulse" />
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="absolute left-1/2 top-1/2 w-[400px] h-[400px] border border-indigo-500/20 rounded-full" style={{ animation: `spin ${15 + i*3}s linear infinite`, transform: `translate(-50%, -50%) rotateX(70deg) rotateY(${i*30}deg)` }}>
+            <div className="absolute top-0 left-1/2 w-3 h-3 bg-blue-400 rounded-full shadow-[0_0_15px_#60a5fa] -translate-x-1/2 -translate-y-1/2 animate-ping" />
+          </div>
+        ))}
+        <div className="absolute left-1/2 top-1/2 w-12 h-12 bg-purple-500 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+      </div>
+    )
   },
   PETROLEO: {
     root: 'bg-stone-950 bg-[radial-gradient(ellipse_at_center,_rgba(234,179,8,0.04)_0%,_rgba(12,10,9,1)_80%)]',
@@ -149,12 +160,12 @@ const themeContainerVariants = {
 };
 
 const layer1BgVariants = {
-  NEUTRAL: { opacity: 1, backgroundColor: '#020617', transition: { duration: 0.8 } },
-  INFORMATICA: { opacity: 1, backgroundColor: '#000000', transition: { duration: 0.5 } },
-  ARQUITECTURA: { opacity: 1, backgroundColor: '#082f49', transition: { duration: 0.5 } },
-  CIVIL: { opacity: 1, backgroundColor: '#1c1917', transition: { duration: 0.5 } },
-  METEOROLOGIA: { opacity: 1, backgroundColor: '#0f172a', transition: { duration: 0.5 } },
-  PETROLEO: { opacity: 1, backgroundColor: '#292524', transition: { duration: 0.5 } }
+  NEUTRAL: { opacity: 1, backgroundColor: 'transparent', transition: { duration: 0.8 } },
+  INFORMATICA: { opacity: 0.85, backgroundColor: '#000000', transition: { duration: 0.5 } },
+  ARQUITECTURA: { opacity: 0.85, backgroundColor: '#082f49', transition: { duration: 0.5 } },
+  CIVIL: { opacity: 0.85, backgroundColor: '#1c1917', transition: { duration: 0.5 } },
+  METEOROLOGIA: { opacity: 0.85, backgroundColor: '#0f172a', transition: { duration: 0.5 } },
+  PETROLEO: { opacity: 0.85, backgroundColor: '#1a1614', transition: { duration: 0.5 } }
 };
 
 const layer2GridVariants = {
@@ -192,13 +203,29 @@ function Layer1Background({ theme }: { theme: string }) {
 
 function Layer2Grid({ theme }: { theme: string }) {
   return (
-    <motion.div variants={layer2GridVariants} className="absolute inset-0 z-0 pointer-events-none overflow-hidden flex items-center justify-center">
+    <motion.div variants={layer2GridVariants as any} className="absolute inset-0 z-0 pointer-events-none overflow-hidden flex items-center justify-center">
       {theme === 'INFORMATICA' && (
-         <div className="w-full h-full flex justify-around opacity-40 font-mono text-emerald-500 text-sm">
-           {[...Array(30)].map((_, i) => (
-             <div key={i} className="animate-bounce" style={{ animationDelay: `${i * 0.1}s`, animationDuration: '2s' }}>
-               101010<br/>010101<br/>110011<br/>001100<br/>101010
-             </div>
+         <div className="w-full h-full flex justify-around overflow-hidden opacity-60 font-mono text-emerald-500 text-xs sm:text-sm absolute top-0 left-0 pointer-events-none">
+           {[...Array(40)].map((_, i) => (
+             <motion.div 
+               key={`rain-${i}`} 
+               initial={{ y: '-100vh' }}
+               animate={{ y: '100vh' }} 
+               transition={{ 
+                 duration: 3 + Math.random() * 4, 
+                 repeat: Infinity, 
+                 ease: 'linear', 
+                 delay: Math.random() * -5 
+               }}
+               className="flex flex-col items-center"
+               style={{ textShadow: '0 0 8px rgba(16,185,129,0.8)' }}
+             >
+               {Array.from({ length: 20 }).map((_, j) => (
+                 <div key={j} style={{ opacity: Math.max(0, 1 - j * 0.05), color: j === 0 ? '#fff' : undefined }}>
+                   {Math.random() > 0.5 ? '1' : '0'}
+                 </div>
+               ))}
+             </motion.div>
            ))}
          </div>
       )}
@@ -226,10 +253,40 @@ function Layer2Grid({ theme }: { theme: string }) {
          </div>
       )}
       {theme === 'PETROLEO' && (
-         <div className="w-full h-full relative">
-           <div className="absolute top-1/2 w-full h-8 bg-gradient-to-b from-yellow-500 to-yellow-700 border-y-4 border-yellow-900 shadow-[0_0_20px_rgba(234,179,8,0.3)]" />
-           <div className="absolute left-1/2 h-full w-8 bg-gradient-to-r from-yellow-500 to-yellow-700 border-x-4 border-yellow-900 shadow-[0_0_20px_rgba(234,179,8,0.3)]" />
-           <div className="absolute top-1/2 left-1/2 w-16 h-16 -ml-8 -mt-8 rounded-full bg-yellow-600 border-4 border-yellow-900" />
+         <div className="w-full h-full relative overflow-hidden">
+           {[...Array(12)].map((_, i) => (
+             <motion.div 
+               key={`puddle-${i}`} 
+               className="absolute rounded-full bg-[#110e0c]/80 border border-[#2a2420]/50 shadow-[inset_0_0_20px_rgba(0,0,0,1)]"
+               animate={{ 
+                 scale: [1, 1.1, 0.9, 1], 
+                 opacity: [0.6, 0.9, 0.6] 
+               }}
+               transition={{ 
+                 duration: 4 + Math.random() * 3, 
+                 repeat: Infinity, 
+                 ease: "easeInOut",
+                 delay: Math.random() * 2 
+               }}
+               style={{ 
+                 left: `${Math.random() * 100}%`,
+                 top: `${Math.random() * 100}%`,
+                 width: `${100 + Math.random() * 200}px`,
+                 height: `${80 + Math.random() * 150}px`,
+                 filter: 'blur(4px)',
+                 transform: `rotate(${Math.random() * 360}deg)`
+               }}
+             >
+                <motion.div
+                  className="absolute bg-[#2a2420] rounded-full opacity-50"
+                  animate={{ scale: [0, 1.5], opacity: [0.8, 0] }}
+                  transition={{ duration: 2 + Math.random() * 2, repeat: Infinity, delay: Math.random() * 2 }}
+                  style={{
+                    left: '40%', top: '40%', width: '20px', height: '20px'
+                  }}
+                />
+             </motion.div>
+           ))}
          </div>
       )}
       {theme === 'NEUTRAL' && (
@@ -348,7 +405,7 @@ export default function GamePage() {
   const executeAttacks = () => {
     if (isActionLocked) return;
     setIsActionLocked(true);
-    socket?.emit('executeAttacks');
+    (socket as any)?.emit('executeAttacks');
     setTimeout(() => setIsActionLocked(false), 1000);
   };
 
@@ -529,14 +586,16 @@ export default function GamePage() {
                 <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-yellow-500/5 z-0 group-hover:opacity-100 transition-opacity opacity-50"></div>
                 <div className="relative z-10 flex flex-col items-center w-full text-center">
                   <div className="w-24 h-24 bg-amber-950/50 rounded-full flex items-center justify-center mb-6 border border-amber-800/50 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                    <span className="text-5xl">🗺️</span>
+                    <img src="/modo aventura.png" alt="Modo Aventura" className="w-14 h-14 object-contain" />
                   </div>
                   <h2 className="text-3xl font-black text-amber-400 mb-4 uppercase tracking-widest drop-shadow-lg">Modo Aventura</h2>
                   <p className="text-slate-400 text-sm mb-8 leading-relaxed px-4">Enfréntate a la IA en una serie de duelos continuos. Desbloquea nuevas cartas cada 5 victorias, domina las disciplinas y demuestra tu conocimiento estratégico.</p>
                 </div>
                 <div className="relative z-10 w-full mt-auto">
                   <button onClick={startAdventure} className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 py-4 rounded-xl font-black transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] transform hover:-translate-y-1 flex items-center justify-center space-x-3 cursor-pointer text-lg tracking-widest">
-                    <span>⚔️</span><span>INICIAR AVENTURA</span><span>⚔️</span>
+                    <img src="/symbols/batalla.png" className="w-5 h-5 object-contain" alt="" />
+                    <span>INICIAR AVENTURA</span>
+                    <img src="/symbols/batalla.png" className="w-5 h-5 object-contain" alt="" />
                   </button>
                 </div>
               </div>
@@ -589,7 +648,8 @@ export default function GamePage() {
             <div className="w-full bg-slate-900/80 p-6 md:p-8 rounded-3xl shadow-[0_0_40px_rgba(245,158,11,0.05)] border border-slate-700/50 backdrop-blur-sm flex flex-col min-h-[600px] mb-8">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-black text-amber-400 uppercase tracking-widest drop-shadow-lg flex items-center space-x-3">
-                  <span>📚</span><span>Tu Colección</span>
+                  <img src="/symbols/concepto.png" className="w-6 h-6 object-contain inline-block mr-2" alt="" />
+                  <span>Tu Colección</span>
                 </h2>
                 <div className="bg-slate-950/60 border border-slate-800 px-4 py-2 rounded-lg font-mono text-sm">
                   Cartas Obtenidas: <span className="text-amber-400 font-bold">{Object.values(userProfile?.cardInventory || {}).filter(c => c > 0).length}</span> / {allCards.length}
@@ -601,9 +661,11 @@ export default function GamePage() {
                   return (
                     <div key={card.id} className="relative flex flex-col items-center">
                       {hasCard ? (
-                        <GameCardContent card={card} className="w-40 h-60" onPreview={() => setPreviewCardId(card.id)} />
+                        <div className="w-36 h-52 relative">
+                          <GameCardContent card={card} onPreview={() => setPreviewCardId(card.id)} />
+                        </div>
                       ) : (
-                        <div className="w-40 h-60 bg-slate-950 border-2 border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center p-4 relative overflow-hidden shadow-inner grayscale opacity-60">
+                        <div className="w-36 h-52 bg-slate-950 border-2 border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center p-4 relative overflow-hidden shadow-inner grayscale opacity-60">
                           <span className="text-5xl mb-4 text-slate-700 opacity-50">🔒</span>
                           <span className="text-[9px] text-slate-600 font-bold tracking-widest text-center uppercase">Carta Bloqueada</span>
                         </div>
@@ -634,7 +696,10 @@ export default function GamePage() {
                   </section>
 
                   <section>
-                    <h3 className="text-2xl font-bold text-red-400 mb-3 flex items-center"><span className="text-3xl mr-2">⚔️</span> Combate y Mecánicas</h3>
+                    <h3 className="text-2xl font-bold text-red-400 mb-3 flex items-center">
+                      <img src="/symbols/batalla.png" className="w-8 h-8 object-contain mr-2" alt="" />
+                      Combate y Mecánicas
+                    </h3>
                     <div className="bg-slate-950/50 p-6 rounded-xl border border-slate-800 text-slate-300 leading-relaxed space-y-4">
                       <p><strong className="text-red-300">Ataques:</strong> Los monstruos que ya estaban en el campo desde el turno anterior pueden atacar. Si atacas a una columna donde el oponente tiene un monstruo, tu monstruo hará daño a la <strong>Defensa (DEF)</strong> de ese monstruo.</p>
                       <p><strong className="text-red-300">Daño Directo:</strong> Si atacas a una columna vacía, tu monstruo infligirá daño directamente a los <strong>LP</strong> del oponente igual a su poder de Ataque (ATK).</p>
@@ -646,27 +711,80 @@ export default function GamePage() {
                     <h3 className="text-2xl font-bold text-amber-400 mb-3 flex items-center"><span className="text-3xl mr-2">🎴</span> Tipos de Cartas</h3>
                     <div className="bg-slate-950/50 p-6 rounded-xl border border-slate-800 text-slate-300 leading-relaxed grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
-                         <h4 className="font-bold text-lg text-amber-300 mb-2">🐉 Monstruos</h4>
+                         <h4 className="font-bold text-lg text-amber-300 mb-2 flex items-center gap-2">
+                           <img src="/symbols/monster.png" className="w-5 h-5 object-contain" alt="" />
+                           Monstruos
+                         </h4>
                          <p className="text-sm">Representan conceptos académicos materializados. Tienen puntos de <strong>ATK</strong> y <strong>DEF</strong>. Invocar monstruos no cuesta energía, pero ocupan espacio en el tablero.</p>
                       </div>
                       <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
-                         <h4 className="font-bold text-lg text-emerald-300 mb-2">✨ Hechizos</h4>
+                         <h4 className="font-bold text-lg text-emerald-300 mb-2 flex items-center gap-2">
+                           <img src="/symbols/spell.png" className="w-5 h-5 object-contain" alt="" />
+                           Hechizos
+                         </h4>
                          <p className="text-sm">Son acciones tácticas que alteran el curso de la batalla. Lanzarlos consume <strong>Energía</strong>. Pueden afectar a monstruos aliados, monstruos enemigos o a los jugadores directamente.</p>
                       </div>
                     </div>
                   </section>
 
                   <section>
-                    <h3 className="text-2xl font-bold text-purple-400 mb-3 flex items-center"><span className="text-3xl mr-2">🔍</span> Leyenda de Iconos</h3>
-                    <div className="bg-slate-950/50 p-6 rounded-xl border border-slate-800 text-slate-300 leading-relaxed grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2 text-red-500 font-bold">ATK</span>Poder de Daño</div>
-                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2 text-blue-500 font-bold">DEF</span>Resistencia</div>
-                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2 text-green-500">⚡</span>Energía para Hechizos</div>
-                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2 text-red-400 font-bold">LP</span>Puntos de Vida</div>
-                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2">🎓</span>Carrera Académica</div>
-                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2">📚</span>Concepto Académico</div>
-                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2 text-emerald-500 font-bold">COSTE</span>Costo de Energía</div>
-                      <div className="p-4 bg-slate-900 rounded-lg"><span className="block text-2xl mb-2">✨</span>Carta Hechizo</div>
+                    <h3 className="text-2xl font-bold text-purple-400 mb-3 flex items-center">
+                      <img src="/symbols/lupa.png" alt="Leyenda" className="w-8 h-8 object-contain mr-2 drop-shadow-md" />
+                      Leyenda de Iconos
+                    </h3>
+                    
+                    <h4 className="text-sm font-bold text-slate-400 mb-2 mt-4 uppercase tracking-wider">Atributos y Estadísticas</h4>
+                    <div className="bg-slate-950/50 p-6 rounded-xl border border-slate-800 text-slate-300 leading-relaxed grid grid-cols-2 sm:grid-cols-4 gap-4 text-center mb-6">
+                      <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800"><span className="block text-2xl mb-2 text-red-500 font-bold">ATK</span>Poder de Daño</div>
+                      <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800"><span className="block text-2xl mb-2 text-blue-500 font-bold">DEF</span>Resistencia</div>
+                      <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800"><span className="block text-2xl mb-2">⚡</span>Energía del Jugador</div>
+                      <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800">
+                        <img src="/symbols/concepto.png" className="w-8 h-8 object-contain mx-auto mb-2" alt="" />
+                        Concepto Académico
+                      </div>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">Tipos de Cartas</h4>
+                    <div className="bg-slate-950/50 p-6 rounded-xl border border-slate-800 text-slate-300 leading-relaxed grid grid-cols-3 gap-4 text-center mb-6">
+                      <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800">
+                        <img src="/symbols/monster.png" className="w-8 h-8 object-contain mx-auto mb-2" alt="Monstruo" />
+                        <strong className="text-amber-400 text-xs uppercase block mb-1">Monstruo</strong>
+                        <span className="text-[10px] text-slate-400">Conceptos invocados al campo (ATK/DEF)</span>
+                      </div>
+                      <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800">
+                        <img src="/symbols/spell.png" className="w-8 h-8 object-contain mx-auto mb-2" alt="Hechizo" />
+                        <strong className="text-emerald-400 text-xs uppercase block mb-1">Hechizo</strong>
+                        <span className="text-[10px] text-slate-400">Efectos y acciones mágicas instantáneas</span>
+                      </div>
+                      <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800">
+                        <span className="block text-3xl mb-2">⚠️</span>
+                        <strong className="text-rose-400 text-xs uppercase block mb-1">Trampa</strong>
+                        <span className="text-[10px] text-slate-400">Efectos de defensa reactivos y mitigación</span>
+                      </div>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">Símbolos de Carreras</h4>
+                    <div className="bg-slate-950/50 p-6 rounded-xl border border-slate-800 text-slate-300 leading-relaxed grid grid-cols-2 sm:grid-cols-5 gap-4 text-center">
+                      <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800 flex flex-col items-center justify-center">
+                        <img src="/symbols/INFORMATICA.png" alt="Informática" className="w-10 h-10 object-contain mb-2 filter drop-shadow-[0_0_3px_rgba(16,185,129,0.3)]" />
+                        <span className="font-bold text-xs text-slate-200">Informática</span>
+                      </div>
+                      <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800 flex flex-col items-center justify-center">
+                        <img src="/symbols/ARQUITECTURA.png" alt="Arquitectura" className="w-10 h-10 object-contain mb-2 filter drop-shadow-[0_0_3px_rgba(249,115,22,0.3)]" />
+                        <span className="font-bold text-xs text-slate-200">Arquitectura</span>
+                      </div>
+                      <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800 flex flex-col items-center justify-center">
+                        <img src="/symbols/CIVIL.png" alt="Civil" className="w-10 h-10 object-contain mb-2 filter drop-shadow-[0_0_3px_rgba(168,162,158,0.3)]" />
+                        <span className="font-bold text-xs text-slate-200">Civil</span>
+                      </div>
+                      <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800 flex flex-col items-center justify-center">
+                        <img src="/symbols/PETROLEO.png" alt="Petróleo" className="w-10 h-10 object-contain mb-2 filter drop-shadow-[0_0_3px_rgba(234,179,8,0.3)]" />
+                        <span className="font-bold text-xs text-slate-200">Petróleo</span>
+                      </div>
+                      <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800 flex flex-col items-center justify-center">
+                        <img src="/symbols/METEOROLOGIA.png" alt="Meteorología" className="w-10 h-10 object-contain mb-2 filter drop-shadow-[0_0_3px_rgba(6,182,212,0.3)]" />
+                        <span className="font-bold text-xs text-slate-200">Meteorología</span>
+                      </div>
                     </div>
                   </section>
                </div>
@@ -679,11 +797,11 @@ export default function GamePage() {
         <AnimatePresence>
           {previewCardId && (
             <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} onClick={() => setPreviewCardId(null)} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 cursor-pointer">
-              <motion.div initial={{ scale: 0.8, y: 50, opacity: 0 }} animate={{ scale: 2.2, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 50, opacity: 0 }} transition={{ type: 'spring', damping: 20, stiffness: 300 }} onClick={(e) => e.stopPropagation()} className="relative cursor-default">
-                <div className="relative hover:scale-[1.02] transition-transform duration-300">
-                  <GameCardContent card={allCards.find(c => c.id === previewCardId)!} />
+              <motion.div initial={{ scale: 0.8, y: 50, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 50, opacity: 0 }} transition={{ type: 'spring', damping: 20, stiffness: 300 }} onClick={(e) => e.stopPropagation()} className="relative cursor-default">
+                <div className="relative hover:scale-[1.02] transition-transform duration-300 w-80 h-[30rem]">
+                  <GameCardContent card={allCards.find(c => c.id === previewCardId)!} isExpanded={true} />
                 </div>
-                <button onClick={() => setPreviewCardId(null)} className="absolute -top-3 -right-3 bg-red-600 hover:bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold shadow-lg text-xs z-50 border border-red-800">X</button>
+                <button onClick={() => setPreviewCardId(null)} className="absolute -top-4 -right-4 bg-red-600 hover:bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-lg text-sm z-50 border border-red-800">X</button>
               </motion.div>
             </motion.div>
           )}
@@ -734,7 +852,7 @@ export default function GamePage() {
     const availableCards = [...MONSTERS, ...SPELLS].filter(c => !c.isUnlockable || me?.unlockedCardIds?.includes(c.id));
     const filteredCards = availableCards.filter(c => {
       if (activeTab !== 'ALL' && c.type !== activeTab) return false;
-      if (selectedArea !== 'ALL' && c.area !== selectedArea) return false;
+      if (selectedArea !== 'ALL' && !getCardCareers(c.area).includes(selectedArea)) return false;
       return true;
     });
 
@@ -763,11 +881,17 @@ export default function GamePage() {
     });
 
     const areaStyles: Record<string, { bg: string, text: string, border: string, glow: string, icon: string, gradient: string }> = {
-      INFORMATICA: { bg: 'bg-blue-600/20', text: 'text-blue-400', border: 'border-blue-500/50', glow: 'shadow-[0_0_40px_rgba(59,130,246,0.2)]', icon: '💻', gradient: 'from-blue-900/40 to-slate-900' },
-      ARQUITECTURA: { bg: 'bg-orange-600/20', text: 'text-orange-400', border: 'border-orange-500/50', glow: 'shadow-[0_0_40px_rgba(249,115,22,0.2)]', icon: '📐', gradient: 'from-orange-900/40 to-slate-900' },
-      CIVIL: { bg: 'bg-stone-600/30', text: 'text-stone-300', border: 'border-stone-500/50', glow: 'shadow-[0_0_40px_rgba(168,162,158,0.2)]', icon: '🏗️', gradient: 'from-stone-800/40 to-slate-900' },
-      PETROLEO: { bg: 'bg-zinc-800/80', text: 'text-yellow-500', border: 'border-yellow-600/50', glow: 'shadow-[0_0_40px_rgba(202,138,4,0.2)]', icon: '🛢️', gradient: 'from-yellow-900/30 to-slate-900' },
-      METEOROLOGIA: { bg: 'bg-cyan-600/20', text: 'text-cyan-400', border: 'border-cyan-500/50', glow: 'shadow-[0_0_40px_rgba(6,182,212,0.2)]', icon: '🌪️', gradient: 'from-cyan-900/40 to-slate-900' },
+      INFORMATICA: { bg: 'bg-blue-600/20', text: 'text-blue-400', border: 'border-blue-500/50', glow: 'shadow-[0_0_40px_rgba(59,130,246,0.2)]', icon: '/symbols/INFORMATICA.png', gradient: 'from-blue-900/40 to-slate-900' },
+      ARQUITECTURA: { bg: 'bg-orange-600/20', text: 'text-orange-400', border: 'border-orange-500/50', glow: 'shadow-[0_0_40px_rgba(249,115,22,0.2)]', icon: '/symbols/ARQUITECTURA.png', gradient: 'from-orange-900/40 to-slate-900' },
+      CIVIL: { bg: 'bg-stone-600/30', text: 'text-stone-300', border: 'border-stone-500/50', glow: 'shadow-[0_0_40px_rgba(168,162,158,0.2)]', icon: '/symbols/CIVIL.png', gradient: 'from-stone-800/40 to-slate-900' },
+      PETROLEO: { bg: 'bg-zinc-800/80', text: 'text-yellow-500', border: 'border-yellow-600/50', glow: 'shadow-[0_0_40px_rgba(202,138,4,0.2)]', icon: '/symbols/PETROLEO.png', gradient: 'from-yellow-900/30 to-slate-900' },
+      METEOROLOGIA: { bg: 'bg-cyan-600/20', text: 'text-cyan-400', border: 'border-cyan-500/50', glow: 'shadow-[0_0_40px_rgba(6,182,212,0.2)]', icon: '/symbols/METEOROLOGIA.png', gradient: 'from-cyan-900/40 to-slate-900' },
+      CALCULO: { bg: 'bg-slate-800/50', text: 'text-slate-300', border: 'border-slate-700/50', glow: 'shadow-[0_0_30px_rgba(59,130,246,0.05)]', icon: '/symbols/concepto.png', gradient: 'from-slate-900 to-blue-950/20' },
+      LOGICA: { bg: 'bg-blue-600/10', text: 'text-blue-400', border: 'border-blue-500/30', glow: 'shadow-[0_0_30px_rgba(59,130,246,0.05)]', icon: '/symbols/INFORMATICA.png', gradient: 'from-blue-900/20 to-slate-900' },
+      LENGUAJE: { bg: 'bg-slate-800/50', text: 'text-slate-300', border: 'border-slate-700/50', glow: 'shadow-[0_0_30px_rgba(59,130,246,0.05)]', icon: '/symbols/concepto.png', gradient: 'from-slate-900 to-blue-950/20' },
+      DESARROLLO: { bg: 'bg-slate-800/50', text: 'text-slate-300', border: 'border-slate-700/50', glow: 'shadow-[0_0_30px_rgba(59,130,246,0.05)]', icon: '/symbols/concepto.png', gradient: 'from-slate-900 to-blue-950/20' },
+      FISICO: { bg: 'bg-slate-800/50', text: 'text-slate-300', border: 'border-slate-700/50', glow: 'shadow-[0_0_30px_rgba(59,130,246,0.05)]', icon: '/symbols/concepto.png', gradient: 'from-slate-900 to-blue-950/20' },
+      NEUTRAL: { bg: 'bg-slate-800/50', text: 'text-slate-300', border: 'border-slate-700/50', glow: 'shadow-[0_0_30px_rgba(59,130,246,0.05)]', icon: '/symbols/concepto.png', gradient: 'from-slate-900 to-blue-950/20' },
       ALL: { bg: 'bg-slate-800/50', text: 'text-slate-300', border: 'border-slate-700', glow: 'shadow-[0_0_30px_rgba(59,130,246,0.05)]', icon: '🌐', gradient: 'from-slate-900 to-blue-950/20' }
     };
 
@@ -811,7 +935,11 @@ export default function GamePage() {
                     onClick={() => setSelectedArea(area)} 
                     className={`flex-shrink-0 px-3 py-1.5 rounded-md font-bold uppercase text-[10px] tracking-wider transition-all flex items-center space-x-2 ${isSelected ? `${style.bg} ${style.text} border ${style.border}` : 'bg-slate-900/50 text-slate-500 hover:bg-slate-800 border border-slate-800'}`}
                   >
-                    <span>{style.icon}</span>
+                    {style.icon.startsWith('/') ? (
+                      <img src={style.icon} className="w-4 h-4 object-contain" alt="" />
+                    ) : (
+                      <span>{style.icon}</span>
+                    )}
                     <span>{area === 'ALL' ? 'Todas las Áreas' : area}</span>
                   </button>
                 );
@@ -839,7 +967,9 @@ export default function GamePage() {
                         className={`relative flex flex-col items-center group ${isMaxedOut ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer'}`}
                         onClick={() => { if (!isMaxedOut) addCardToDeck(card.id); }}
                       >
-                        <GameCardContent card={card} className="w-32 h-48" onPreview={() => setPreviewCardId(card.id)} />
+                        <div className="w-36 h-52 relative">
+                          <GameCardContent card={card} onPreview={() => setPreviewCardId(card.id)} />
+                        </div>
                         
                         <div className="mt-2 text-[10px] font-bold text-slate-400 bg-slate-900/80 px-2 py-1 rounded border border-slate-700 w-full text-center">
                            Posees: {countOwned} | En Mazo: <span className={countInDeck > 0 ? 'text-blue-400' : ''}>{countInDeck}</span>
@@ -862,7 +992,11 @@ export default function GamePage() {
           <div className={`w-1/3 flex flex-col h-full bg-slate-950/90 rounded-3xl border ${currentDeckStyle.border} ${currentDeckStyle.glow} backdrop-blur-xl overflow-hidden relative transition-all duration-700`}>
             <div className={`p-6 border-b border-slate-800 flex justify-between items-center bg-gradient-to-r ${currentDeckStyle.gradient} transition-colors duration-700`}>
               <div className="flex items-center space-x-3">
-                <span className="text-2xl">{currentDeckStyle.icon}</span>
+                {currentDeckStyle.icon.startsWith('/') ? (
+                  <img src={currentDeckStyle.icon} className="w-6 h-6 object-contain" alt="" />
+                ) : (
+                  <span className="text-2xl">{currentDeckStyle.icon}</span>
+                )}
                 <h2 className={`text-xl font-black uppercase tracking-widest ${currentDeckStyle.text}`}>Tu Mazo</h2>
               </div>
               <span className={`text-sm font-mono font-bold px-2 py-1 rounded border ${!isValidSize ? 'bg-red-950/50 text-red-400 border-red-900/50 animate-pulse' : 'bg-slate-900 text-slate-300 border-slate-700'}`}>
@@ -884,7 +1018,11 @@ export default function GamePage() {
                     const style = areaStyles[area] || areaStyles['ALL'];
                     return (
                       <div key={area} className={`flex items-center space-x-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${style.bg} ${style.text} ${style.border}`}>
-                        <span>{style.icon}</span>
+                        {style.icon.startsWith('/') ? (
+                          <img src={style.icon} className="w-3.5 h-3.5 object-contain" alt="" />
+                        ) : (
+                          <span>{style.icon}</span>
+                        )}
                         <span>{count}</span>
                       </div>
                     );
@@ -911,7 +1049,11 @@ export default function GamePage() {
                         className={`flex items-center p-2 rounded-xl cursor-pointer border hover:bg-slate-800 transition-colors group ${card.type === 'MONSTER' ? 'bg-slate-900/80 border-amber-900/30' : 'bg-slate-900/80 border-emerald-900/30'}`}
                       >
                         <div className={`w-10 h-14 flex-shrink-0 rounded flex items-center justify-center border ${card.type === 'MONSTER' ? 'bg-amber-950/50 border-amber-800/50 text-amber-500' : 'bg-emerald-950/50 border-emerald-800/50 text-emerald-500'}`}>
-                          <span className="text-lg">{card.type === 'MONSTER' ? '🐉' : '✨'}</span>
+                          {card.type === 'MONSTER' ? (
+                            <img src="/symbols/monster.png" className="w-5 h-5 object-contain" alt="" />
+                          ) : (
+                            <img src="/symbols/spell.png" className="w-5 h-5 object-contain" alt="" />
+                          )}
                         </div>
                         <div className="ml-3 flex-grow overflow-hidden">
                           <h3 className="text-xs font-bold truncate text-slate-200 group-hover:text-white transition-colors">{card.name}</h3>
@@ -919,7 +1061,11 @@ export default function GamePage() {
                             <span className="text-[9px] text-slate-500 uppercase">{card.type}</span>
                             {card.area && (
                               <span className={`text-[8px] px-1.5 py-0.5 rounded border flex items-center space-x-1 ${areaStyles[card.area]?.bg || ''} ${areaStyles[card.area]?.text || 'text-slate-400'} ${areaStyles[card.area]?.border || 'border-slate-700'}`}>
-                                <span>{areaStyles[card.area]?.icon}</span>
+                                {areaStyles[card.area]?.icon?.startsWith('/') ? (
+                                  <img src={areaStyles[card.area]?.icon} className="w-3 h-3 object-contain" alt="" />
+                                ) : (
+                                  <span>{areaStyles[card.area]?.icon || '🎓'}</span>
+                                )}
                                 <span>{card.area}</span>
                               </span>
                             )}
@@ -933,7 +1079,7 @@ export default function GamePage() {
                   })}
                   {selectedCards.length === 0 && (
                      <div className="h-full w-full flex flex-col items-center justify-center text-slate-600 opacity-50 py-20 text-center">
-                       <span className="text-5xl mb-4">🎴</span>
+                       <img src="/symbols/cartas.png" alt="Mazo Vacío" className="w-16 h-16 object-contain mb-4 filter grayscale opacity-70" />
                        <p className="font-mono text-xs uppercase tracking-widest">El mazo está vacío</p>
                      </div>
                   )}
@@ -975,9 +1121,11 @@ export default function GamePage() {
         <AnimatePresence>
           {previewCardId && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} onClick={() => setPreviewCardId(null)} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 cursor-pointer">
-              <motion.div initial={{ scale: 0.8, y: 50, opacity: 0 }} animate={{ scale: 2.2, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 50, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="relative cursor-default">
-                <GameCardContent card={allCards.find(c => c.id === previewCardId)!} />
-                <button onClick={() => setPreviewCardId(null)} className="absolute -top-3 -right-3 bg-red-600 hover:bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold shadow-lg text-xs z-50 border border-red-800">X</button>
+              <motion.div initial={{ scale: 0.8, y: 50, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 50, opacity: 0 }} transition={{ type: 'spring', damping: 20, stiffness: 300 }} onClick={(e) => e.stopPropagation()} className="relative cursor-default">
+                <div className="relative hover:scale-[1.02] transition-transform duration-300 w-80 h-[30rem]">
+                  <GameCardContent card={allCards.find(c => c.id === previewCardId)!} isExpanded={true} />
+                </div>
+                <button onClick={() => setPreviewCardId(null)} className="absolute -top-4 -right-4 bg-red-600 hover:bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-lg text-sm z-50 border border-red-800">X</button>
               </motion.div>
             </motion.div>
           )}
@@ -1004,7 +1152,10 @@ export default function GamePage() {
   const currentThemeStr = gameState.dominantTheme || 'NEUTRAL';
 
   return (
-    <motion.div animate={currentThemeStr} variants={themeContainerVariants as any} className="flex min-h-screen text-white font-sans overflow-hidden relative bg-black custom-scrollbar">
+    <motion.div animate={currentThemeStr} variants={themeContainerVariants as any} className="flex h-screen text-white font-sans overflow-hidden relative bg-black">
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        {BOARD_THEMES.NEUTRAL.particles}
+      </div>
       <Layer1Background theme={currentThemeStr} />
       <Layer2Grid theme={currentThemeStr} />
       
@@ -1015,19 +1166,21 @@ export default function GamePage() {
         </div>
       )}
 
-      <div className="flex-grow flex flex-col relative z-10">
+      <div className="flex-grow flex flex-col relative z-10 h-full w-full overflow-hidden">
         <div className="absolute top-6 left-6 z-20 cursor-pointer" onClick={handleOpponentAvatarClick}>
           <div className={`bg-slate-900/80 px-6 py-2 rounded-full border transition-all shadow-inner flex items-center space-x-4 border-red-900/50`}>
             <p className="text-2xl font-mono font-bold text-red-500 tracking-tighter">
               <AnimatedNumber value={opponent?.hp || 0} /> LP
               {animatingCard?.targetId === opponentId && (
-                <span className="text-orange-500 ml-2 animate-pulse">-{animatingCard.damage}</span>
+                <span className="text-orange-500 ml-2 animate-pulse">-{animatingCard?.damage}</span>
               )}
             </p>
             <div className="w-px h-4 bg-slate-700"></div>
             <div className="flex space-x-1">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className={`w-3 h-3 rounded-full ${i < (opponent?.energy || 0) ? 'bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.5)]' : 'bg-slate-700'}`}></div>
+                <div key={i} className={`w-4 h-4 transition-all duration-300 ${i < (opponent?.energy || 0) ? 'opacity-100 drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]' : 'opacity-30 grayscale'}`}>
+                  <img src="/symbols/energia.png" className="w-full h-full object-contain" alt="Energy" />
+                </div>
               ))}
             </div>
             <div className="text-[10px] font-bold text-slate-500 ml-2 uppercase">{opponent?.name}</div>
@@ -1037,63 +1190,63 @@ export default function GamePage() {
         <div className="h-32 flex justify-center items-start pt-6 space-x-[-15px]">
           {opponent?.hand.map((_, i) => (
             <div key={i} className="w-20 h-28 bg-gradient-to-br from-red-900 to-slate-900 rounded-xl border-2 border-red-900/50 shadow-xl transform hover:-translate-y-2 transition-transform flex items-center justify-center">
-              <div className="w-12 h-16 border border-red-800/30 rounded-lg flex items-center justify-center opacity-20">
-                <span className="text-3xl">🎴</span>
+              <div className="w-12 h-16 border border-red-800/30 rounded-lg flex items-center justify-center opacity-40">
+                <img src="/symbols/cartas.png" alt="Carta" className="w-8 h-8 object-contain drop-shadow-md" />
               </div>
             </div>
           ))}
         </div>
 
-        <div className="flex-grow flex flex-col justify-center items-center py-8 relative w-full">
+        <div className="absolute top-[130px] bottom-[260px] left-0 w-full flex flex-col justify-center gap-12 sm:gap-16 items-center z-10 transform scale-[0.75] sm:scale-[0.85] md:scale-100 origin-center pointer-events-none">
           
-          <div className="grid grid-cols-3 gap-6 w-full max-w-2xl mb-8 z-10 justify-items-center">
+          <div className="grid grid-cols-3 gap-4 sm:gap-6 w-full max-w-2xl justify-items-center pointer-events-auto">
             {[0, 1, 2].map(i => {
               const m = opponent?.monsterZone?.[i];
               return (
-                <div key={`opp-slot-${i}`} onClick={() => handleOpponentSlotClick(i)} className={`w-36 h-52 flex items-center justify-center relative cursor-pointer`}>
+                <div key={`opp-slot-${i}`} onClick={() => handleOpponentSlotClick(i)} className={`w-32 h-48 sm:w-36 sm:h-52 flex items-center justify-center relative cursor-pointer`}>
                   <motion.div variants={layer3SlotVariants as any} className="absolute inset-0 rounded-2xl -z-10" />
                   <AnimatePresence mode="popLayout">
                     {m && (
                       <MonsterCardDisplay 
                         monster={m} 
                         isOpponent={true} 
-                        isAttacking={animatingCard?.id === m.instanceId && animatingCard.type === 'ATTACK_IMPACT'}
+                        isAttacking={animatingCard?.id === m.instanceId && animatingCard?.type === 'ATTACK_IMPACT'}
                         isTakingDamage={animatingCard?.targetId === m.instanceId}
-                        damageAmount={animatingCard?.targetId === m.instanceId ? animatingCard.targetDamage : undefined}
-                        isDestroyed={animatingCard?.targetId === m.instanceId ? animatingCard.isDestroyed : false}
+                        damageAmount={animatingCard?.targetId === m.instanceId ? animatingCard?.targetDamage : undefined}
+                        isDestroyed={animatingCard?.targetId === m.instanceId ? animatingCard?.isDestroyed : false}
                         onPreview={() => setPreviewCardId(m.id)}
                       />
                     )}
                   </AnimatePresence>
                   {!m && (
-                    <span className="text-slate-500/50 font-bold tracking-widest text-sm uppercase">Vacío</span>
+                    <span className="text-slate-500/50 font-bold tracking-widest text-xs sm:text-sm uppercase">Vacío</span>
                   )}
                 </div>
               );
             })}
           </div>
           
-          <div className="grid grid-cols-3 gap-6 w-full max-w-2xl mt-8 z-10 justify-items-center">
+          <div className="grid grid-cols-3 gap-4 sm:gap-6 w-full max-w-2xl justify-items-center pointer-events-auto">
             {[0, 1, 2].map(i => {
               const m = me?.monsterZone?.[i];
               const isSelectedTarget = selectedActionCard && me?.hand.find(c => c.id === selectedActionCard)?.type === 'MONSTER' && !m;
               return (
-                <div key={`my-slot-${i}`} onClick={() => handleMySlotClick(i)} className={`w-36 h-52 flex items-center justify-center relative cursor-pointer hover:-translate-y-2 transition-transform ${isSelectedTarget ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}>
+                <div key={`my-slot-${i}`} onClick={() => handleMySlotClick(i)} className={`w-32 h-48 sm:w-36 sm:h-52 flex items-center justify-center relative cursor-pointer hover:-translate-y-2 transition-transform ${isSelectedTarget ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}>
                   <motion.div variants={layer3SlotVariants as any} className="absolute inset-0 rounded-2xl -z-10" />
                   <AnimatePresence mode="popLayout">
                     {m && (
                       <MonsterCardDisplay 
                         monster={m} 
-                        isAttacking={animatingCard?.attackerId === m.instanceId && animatingCard.type === 'ATTACK_IMPACT'}
+                        isAttacking={animatingCard?.id === m.instanceId && animatingCard?.type === 'ATTACK_IMPACT'}
                         isTakingDamage={animatingCard?.targetId === m.instanceId || animatingCard?.secondaryTargetId === m.instanceId}
-                        damageAmount={(animatingCard?.targetId === m.instanceId) ? animatingCard.targetDamage : ((animatingCard?.secondaryTargetId === m.instanceId) ? animatingCard.secondaryDamage : undefined)}
-                        isDestroyed={(animatingCard?.targetId === m.instanceId) ? animatingCard.isDestroyed : false}
+                        damageAmount={(animatingCard?.targetId === m.instanceId) ? animatingCard?.targetDamage : ((animatingCard?.secondaryTargetId === m.instanceId) ? animatingCard?.secondaryDamage : undefined)}
+                        isDestroyed={(animatingCard?.targetId === m.instanceId) ? animatingCard?.isDestroyed : false}
                         onPreview={() => setPreviewCardId(m.id)}
                       />
                     )}
                   </AnimatePresence>
                   {!m && (
-                    <span className="text-slate-500/50 font-bold tracking-widest text-sm uppercase">Vacío</span>
+                    <span className="text-slate-500/50 font-bold tracking-widest text-xs sm:text-sm uppercase">Vacío</span>
                   )}
                 </div>
               );
@@ -1101,8 +1254,8 @@ export default function GamePage() {
           </div>
         </div>
 
-        <div className="h-[280px] border-t border-slate-800 bg-slate-900/90 backdrop-blur-md p-6 flex justify-between items-center relative z-20 shrink-0">
-          <div className="flex space-x-6 items-center">
+        <div className="absolute bottom-0 left-0 w-full p-6 flex justify-between items-end z-20 pointer-events-none bg-transparent">
+          <div className="flex space-x-6 items-end pointer-events-auto">
             
             <div className="flex flex-col items-center justify-center">
               <div className="text-center mb-2">
@@ -1114,7 +1267,7 @@ export default function GamePage() {
                 <div className={`absolute -bottom-1 -right-1 w-full h-full rounded-xl border border-slate-700/50 -z-10 ${!isMyTurn || me?.hasDrawnThisTurn ? 'bg-slate-800' : 'bg-slate-900'}`}></div>
                 <div className={`absolute -bottom-2 -right-2 w-full h-full rounded-xl border border-slate-700/30 -z-20 ${!isMyTurn || me?.hasDrawnThisTurn ? 'bg-slate-800' : 'bg-slate-900'}`}></div>
                 <div className="w-full h-full flex flex-col items-center justify-center">
-                  <span className="text-3xl mb-1 filter drop-shadow-md group-hover:animate-bounce">🃏</span>
+                  <img src="/symbols/cartas.png" alt="Robar" className="w-10 h-10 mb-1 object-contain filter drop-shadow-md group-hover:animate-bounce" />
                   <span className={`text-[10px] font-bold uppercase tracking-wider ${(!isMyTurn || me?.hasDrawnThisTurn || me?.deck.length === 0) ? 'text-slate-500' : 'text-blue-300'}`}>
                     {me?.hasDrawnThisTurn ? 'Robado' : (me?.deck.length === 0 ? 'Vacío' : 'Robar')}
                   </span>
@@ -1133,10 +1286,10 @@ export default function GamePage() {
                   initial={{ opacity: 0, y: 50, scale: 0.8 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, scale: 0, rotate: 180 }}
-                  transition={{ type: 'spring', stiffness: 150, damping: 12 }}
+                  transition={{ type: 'spring', stiffness: 200, damping: 15 }}
                   onClick={() => handleHandCardClick(card)}
                   disabled={!isMyTurn || isActionLocked}
-                  className={`group relative transition-transform hover:-translate-y-4 disabled:hover:translate-y-0 text-left flex-shrink-0 w-36 h-52 ${selectedActionCard === card.id ? '-translate-y-6 ring-4 ring-blue-500 rounded-xl' : ''}`}
+                  className={`group relative transition-all duration-300 hover:-translate-y-6 hover:scale-105 disabled:hover:translate-y-0 disabled:hover:scale-100 text-left flex-shrink-0 w-36 h-52 ${selectedActionCard === card.id ? '-translate-y-6 ring-4 ring-blue-500 rounded-xl shadow-2xl' : 'hover:shadow-2xl hover:shadow-blue-900/50'}`}
                 >
                   <GameCardContent card={card} onPreview={() => setPreviewCardId(card.id)} />
                   {isMyTurn && !isActionLocked && selectedActionCard !== card.id && (
@@ -1157,21 +1310,23 @@ export default function GamePage() {
             </div>
           </div>
 
-          <div className="absolute right-6 top-1/2 -translate-y-1/2 flex flex-col items-end space-y-4 z-20">
-            <div className="bg-slate-800 px-6 py-2 rounded-full border border-blue-900/50 shadow-inner flex items-center space-x-4">
+          <div className="flex flex-col items-end space-y-4 z-20 pointer-events-auto mb-2">
+            <div className="bg-slate-900/80 backdrop-blur-sm px-6 py-2 rounded-full border border-blue-900/50 shadow-inner flex items-center space-x-4">
               <p className="text-2xl font-mono font-bold text-blue-500 tracking-tighter">
                 <AnimatedNumber value={me?.hp || 0} /> LP
                 {animatingCard?.secondaryTargetId === playerId && (
-                  <span className="text-orange-500 ml-2 animate-pulse">-{animatingCard.secondaryDamage}</span>
+                  <span className="text-orange-500 ml-2 animate-pulse">-{animatingCard?.secondaryDamage}</span>
                 )}
                 {animatingCard?.targetId === playerId && (
-                  <span className="text-orange-500 ml-2 animate-pulse">-{animatingCard.damage}</span>
+                  <span className="text-orange-500 ml-2 animate-pulse">-{animatingCard?.damage}</span>
                 )}
               </p>
               <div className="w-px h-4 bg-slate-700"></div>
               <div className="flex space-x-1">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className={`w-3 h-3 rounded-full ${i < (me?.energy || 0) ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]' : 'bg-slate-700'}`}></div>
+                  <div key={i} className={`w-4 h-4 transition-all duration-300 ${i < (me?.energy || 0) ? 'opacity-100 drop-shadow-[0_0_8px_rgba(59,130,246,0.8)] animate-pulse' : 'opacity-30 grayscale'}`}>
+                    <img src="/symbols/energia.png" className="w-full h-full object-contain" alt="Energy" />
+                  </div>
                 ))}
               </div>
             </div>
@@ -1231,8 +1386,12 @@ export default function GamePage() {
               <p className="text-slate-400 mb-8">{gameState.winner === playerId ? 'Has dominado el campo de batalla.' : 'Tus monstruos han caído en combate.'}</p>
               {opponentId === 'cpu' ? (
                 <div className="space-y-4">
-                  <button onClick={nextAdventure} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-black transition-all shadow-xl shadow-blue-900/40 uppercase tracking-widest cursor-pointer">Siguiente Enfrentamiento</button>
-                  <button onClick={clearSession} className="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 py-3 rounded-xl font-bold transition-all uppercase tracking-widest text-sm cursor-pointer">Abandonar Modo</button>
+                  <button onClick={nextAdventure} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-black transition-all shadow-xl shadow-blue-900/40 uppercase tracking-widest cursor-pointer">
+                    {gameState.winner === playerId ? 'Siguiente Enfrentamiento' : 'Volver a intentar'}
+                  </button>
+                  <button onClick={clearSession} className="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 py-3 rounded-xl font-bold transition-all uppercase tracking-widest text-sm cursor-pointer">
+                    Abandonar
+                  </button>
                 </div>
               ) : (
                 <button onClick={clearSession} className="w-full bg-amber-500 hover:bg-amber-400 text-slate-900 py-4 rounded-xl font-black transition-all shadow-xl shadow-amber-900/40 uppercase tracking-widest cursor-pointer">Nuevo Duelo</button>
@@ -1260,11 +1419,11 @@ export default function GamePage() {
       <AnimatePresence>
         {previewCardId && (
           <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} onClick={() => setPreviewCardId(null)} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 cursor-pointer">
-            <motion.div initial={{ scale: 0.8, y: 50, opacity: 0 }} animate={{ scale: 2.2, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 50, opacity: 0 }} transition={{ type: 'spring', damping: 20, stiffness: 300 }} onClick={(e) => e.stopPropagation()} className="relative cursor-default">
-              <div className="relative hover:scale-[1.02] transition-transform duration-300 w-44 h-64">
-                <GameCardContent card={allCards.find(c => c.id === previewCardId)!} />
+            <motion.div initial={{ scale: 0.8, y: 50, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 50, opacity: 0 }} transition={{ type: 'spring', damping: 20, stiffness: 300 }} onClick={(e) => e.stopPropagation()} className="relative cursor-default">
+              <div className="relative hover:scale-[1.02] transition-transform duration-300 w-80 h-[30rem]">
+                <GameCardContent card={allCards.find(c => c.id === previewCardId)!} isExpanded={true} />
               </div>
-              <button onClick={() => setPreviewCardId(null)} className="absolute -top-3 -right-3 bg-red-600 hover:bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold shadow-lg text-xs z-50 border border-red-800">X</button>
+              <button onClick={() => setPreviewCardId(null)} className="absolute -top-4 -right-4 bg-red-600 hover:bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-lg text-sm z-50 border border-red-800">X</button>
             </motion.div>
           </motion.div>
         )}
@@ -1273,7 +1432,10 @@ export default function GamePage() {
   );
 }
 
-function GameCardContent({ card, isOpponent, defensePercentage = 100, isTakingDamage = false, className = "", onPreview }: any) {
+
+
+function GameCardContent({ card, isOpponent, defensePercentage = 100, isTakingDamage = false, className = "", onPreview, isExpanded = false }: any) {
+  const [imgError, setImgError] = useState(false);
   // Mock rarity mapping based on name length to match the visual variety in the image
   const nameLen = card.name?.length || 0;
   const rarityStr = card.rarity || (nameLen > 15 ? 'SR' : nameLen > 10 ? 'R' : nameLen > 6 ? 'UC' : 'C');
@@ -1291,65 +1453,88 @@ function GameCardContent({ card, isOpponent, defensePercentage = 100, isTakingDa
       {/* Inner thin grey border */}
       <div className="absolute inset-0.5 rounded-lg border border-slate-600/60 pointer-events-none z-20"></div>
 
-      {onPreview && (
-        <div 
-          onClick={(e) => { e.stopPropagation(); onPreview(); }}
-          className="absolute top-2 right-2 bg-black/80 text-white w-6 h-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-50 flex items-center justify-center hover:bg-blue-600 shadow-lg text-[10px]" 
-          title="Ampliar"
-        >
-          🔍
-        </div>
-      )}
-
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-1.5 z-10 border-b border-slate-800/50">
-        <span className="text-[14px] font-bold">{card.type === 'MONSTER' ? '🐉' : '✨'}</span>
-        <span className="text-[10px] font-serif font-bold text-slate-200 truncate">{card.name}</span>
+      <div className={`flex items-center justify-between ${isExpanded ? 'px-4 py-3' : 'px-3 py-1.5'} z-10 border-b border-slate-800/50`}>
+        <div className="flex items-center gap-2 truncate max-w-[65%]">
+          <span className={`flex items-center justify-center font-bold ${isExpanded ? 'text-xl' : ''}`}>
+            {card.type === 'MONSTER' ? (
+              <img src="/symbols/monster.png" className={`${isExpanded ? 'w-6 h-6' : 'w-4 h-4'} object-contain`} alt="Monstruo" />
+            ) : ['s11', 's13', 's16', 's19', 's22'].includes(card.id) ? (
+              <span className={isExpanded ? 'text-[20px]' : 'text-[14px]'}>⚠️</span>
+            ) : (
+              <img src="/symbols/spell.png" className={`${isExpanded ? 'w-6 h-6' : 'w-4 h-4'} object-contain`} alt="Hechizo" />
+            )}
+          </span>
+          <span className={`${isExpanded ? 'text-lg' : 'text-[10px]'} font-serif font-bold text-slate-200 truncate`}>{card.name}</span>
+        </div>
+        <div className="flex items-center gap-0.5 z-20">
+          {getCardCareers(card.area).map(career => (
+            <img 
+              key={career}
+              src={`/symbols/${career}.png`} 
+              alt={career} 
+              className={`${isExpanded ? 'w-5 h-5' : 'w-3.5 h-3.5'} object-contain filter drop-shadow-[0_0_2px_rgba(255,255,255,0.4)]`}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Main Image Box */}
-      <div className="mx-1.5 mt-1.5 bg-[#1c2438] h-[45%] rounded flex items-center justify-center relative overflow-hidden z-10 border-t border-slate-600/30 shadow-inner">
-        {/* Giant faint W */}
-        <span className="text-8xl font-serif text-slate-100/5 absolute select-none pointer-events-none">W</span>
-        
-        {/* Card Name Centered */}
-        <p className="text-center text-xs font-serif font-bold text-slate-200 z-10 px-2 drop-shadow-md">
-          {card.name}
-        </p>
+      <div className="mx-1.5 mt-1.5 bg-[#1c2438] h-[45%] rounded flex items-center justify-center relative overflow-hidden z-10 border-t border-slate-600/30 shadow-inner group/image">
+        {!imgError ? (
+          <img 
+            src={`/cards/${card.name}.jpg`} 
+            alt={card.name} 
+            className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover/image:scale-110" 
+            onError={() => setImgError(true)} 
+          />
+        ) : (
+          <>
+            {/* Giant faint W */}
+            <span className={`${isExpanded ? 'text-9xl' : 'text-8xl'} font-serif text-slate-100/5 absolute select-none pointer-events-none`}>W</span>
+            
+            {/* Card Name Centered */}
+            <p className={`text-center ${isExpanded ? 'text-2xl' : 'text-xs'} font-serif font-bold text-slate-200 z-10 px-2 drop-shadow-md`}>
+              {card.name}
+            </p>
+          </>
+        )}
 
-        {/* Small 'i' icon */}
-        <div 
-          onClick={(e) => { e.stopPropagation(); if (onPreview) onPreview(); }}
-          className="absolute bottom-1 left-1 w-4 h-4 rounded-full border border-slate-500 flex items-center justify-center text-[8px] text-slate-200 bg-[#0a0f1d]/80 hover:bg-blue-600 hover:text-white hover:border-blue-400 transition-colors cursor-pointer z-50">
-          i
-        </div>
+        {onPreview && !isExpanded && (
+          <div 
+            onClick={(e) => { e.stopPropagation(); onPreview(); }}
+            className="absolute bottom-1 left-1 w-6 h-6 flex items-center justify-center cursor-pointer z-50 hover:scale-110 transition-all opacity-0 group-hover:opacity-100 bg-[#0a0f1d]/90 rounded-full p-1 border border-blue-500/50 shadow-lg">
+            <img src="/symbols/lupa.png" alt="Ampliar" className="w-full h-full object-contain drop-shadow-md" />
+          </div>
+        )}
       </div>
 
       {/* Description & Academic Info Text */}
-      <div className="px-2 py-1.5 flex-grow z-10 overflow-hidden flex flex-col">
+      <div className={`${isExpanded ? 'px-4 py-3' : 'px-2 py-1.5'} flex-grow z-10 overflow-hidden flex flex-col`}>
         {/* Career & Subject Section */}
         {(card.area || (card as any).academicMetadata?.academicConcept) && (
           <div className="flex flex-wrap gap-1 mb-1.5">
             {card.area && (
-              <span className="bg-emerald-900/60 border border-emerald-700 text-emerald-300 text-[6px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider shadow-sm">
+              <span className={`bg-emerald-900/60 border border-emerald-700 text-emerald-300 ${isExpanded ? 'text-[10px] px-2 py-1' : 'text-[6px] px-1.5 py-0.5'} font-bold rounded-sm uppercase tracking-wider shadow-sm`}>
                 🎓 {card.area}
               </span>
             )}
             {(card as any).academicMetadata?.academicConcept && (
-              <span className="bg-blue-900/60 border border-blue-700 text-blue-300 text-[6px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider shadow-sm">
-                📚 {(card as any).academicMetadata?.academicConcept}
+              <span className={`bg-blue-900/60 border border-blue-700 text-blue-300 ${isExpanded ? 'text-[10px] px-2 py-1' : 'text-[6px] px-1.5 py-0.5'} font-bold rounded-sm uppercase tracking-wider shadow-sm flex items-center gap-1`}>
+                <img src="/symbols/concepto.png" className={`${isExpanded ? 'w-3.5 h-3.5' : 'w-2.5 h-2.5'} object-contain`} alt="" />
+                {(card as any).academicMetadata?.academicConcept}
               </span>
             )}
           </div>
         )}
         
         <div className="flex-grow flex flex-col">
-          <p className="text-[7.5px] leading-tight text-slate-300 font-serif text-justify line-clamp-5">
+          <p className={`${isExpanded ? 'text-[14px] leading-snug line-clamp-none overflow-y-auto custom-scrollbar' : 'text-[7.5px] leading-tight line-clamp-5'} text-slate-300 font-serif text-justify`}>
             {card.description}
           </p>
           {(card as any).academicMetadata?.academicConcept && (
-            <div className="mt-auto pt-1 border-t border-slate-700/50">
-              <p className="text-[6.5px] text-blue-300/90 italic font-serif leading-tight">
+            <div className={`mt-auto pt-1 border-t border-slate-700/50 ${isExpanded ? 'mt-4 pt-3' : ''}`}>
+              <p className={`${isExpanded ? 'text-[12px]' : 'text-[6.5px]'} text-blue-300/90 italic font-serif leading-tight`}>
                 <span className="font-bold">Concepto:</span> {(card as any).academicMetadata?.academicConcept}
               </p>
             </div>
@@ -1359,22 +1544,22 @@ function GameCardContent({ card, isOpponent, defensePercentage = 100, isTakingDa
 
       {/* Stats Bottom */}
       {card.type === 'MONSTER' ? (
-        <div className="flex w-full h-[15%] min-h-[36px] border-t border-slate-800 z-10 mt-auto bg-black/80">
+        <div className={`flex w-full ${isExpanded ? 'h-[12%] min-h-[50px]' : 'h-[15%] min-h-[36px]'} border-t border-slate-800 z-10 mt-auto bg-black/80`}>
           <div className="flex-1 border-r border-slate-800 flex flex-col items-center justify-center">
-            <span className="text-[7px] font-bold text-red-600 drop-shadow-[0_0_2px_rgba(220,38,38,0.8)] tracking-widest">ATK</span>
-            <span className="text-base font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(220,38,38,0.5)] leading-none mt-0.5">{card.attack}</span>
+            <span className={`${isExpanded ? 'text-[12px]' : 'text-[7px]'} font-bold text-red-600 drop-shadow-[0_0_2px_rgba(220,38,38,0.8)] tracking-widest`}>ATK</span>
+            <span className={`${isExpanded ? 'text-3xl mt-1' : 'text-base mt-0.5'} font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(220,38,38,0.5)] leading-none`}>{card.attack}</span>
           </div>
           <div className="flex-1 flex flex-col items-center justify-center relative overflow-hidden">
             {/* Health Bar overlay */}
             <div className="absolute bottom-0 left-0 h-0.5 bg-blue-500/50 transition-all duration-300" style={{ width: `${defensePercentage}%` }}></div>
-            <span className="text-[7px] font-bold text-blue-500 drop-shadow-[0_0_2px_rgba(59,130,246,0.8)] tracking-widest">DEF</span>
-            <span className="text-base font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(59,130,246,0.5)] leading-none mt-0.5"><AnimatedNumber value={card.defense} /></span>
+            <span className={`${isExpanded ? 'text-[12px]' : 'text-[7px]'} font-bold text-blue-500 drop-shadow-[0_0_2px_rgba(59,130,246,0.8)] tracking-widest`}>DEF</span>
+            <span className={`${isExpanded ? 'text-3xl mt-1' : 'text-base mt-0.5'} font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(59,130,246,0.5)] leading-none`}><AnimatedNumber value={card.defense} /></span>
           </div>
         </div>
       ) : (
-        <div className="flex w-full h-[15%] min-h-[36px] border-t border-slate-800 z-10 mt-auto bg-black/80 items-center justify-center">
-          <span className="text-[9px] font-bold text-emerald-500 drop-shadow-[0_0_2px_rgba(16,185,129,0.8)] tracking-widest mr-2">COSTE</span>
-          <span className="text-base font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(16,185,129,0.5)] leading-none">{card.energyCost}⚡</span>
+        <div className={`flex w-full ${isExpanded ? 'h-[12%] min-h-[50px]' : 'h-[15%] min-h-[36px]'} border-t border-slate-800 z-10 mt-auto bg-black/80 items-center justify-center`}>
+          <span className={`${isExpanded ? 'text-[12px]' : 'text-[9px]'} font-bold text-emerald-500 drop-shadow-[0_0_2px_rgba(16,185,129,0.8)] tracking-widest mr-2`}>COSTE</span>
+          <span className={`${isExpanded ? 'text-3xl' : 'text-base'} font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(16,185,129,0.5)] leading-none`}>{card.energyCost}⚡</span>
         </div>
       )}
     </div>
@@ -1415,8 +1600,8 @@ function MonsterCardDisplay({ monster, isOpponent = false, isAttacking = false, 
           <GameCardContent card={monster} isOpponent={isOpponent} defensePercentage={defensePercentage} isTakingDamage={false} />
         </motion.div>
         {/* Particle dust effect */}
-        {Array.from({ length: 15 }).map((_, i) => (
-          <motion.div key={i} initial={{ x: 0, y: 0, opacity: 1, scale: 1 }} animate={{ x: (Math.random() - 0.5) * 200, y: (Math.random() - 0.5) * 200, opacity: 0, scale: 0 }} transition={{ duration: 1 + Math.random() * 0.5, ease: 'easeOut' }} className="absolute top-1/2 left-1/2 w-3 h-3 bg-slate-300 rounded-full shadow-[0_0_15px_white]" />
+        {Array.from({ length: 25 }).map((_, i) => (
+          <motion.div key={i} initial={{ x: 0, y: 0, opacity: 1, scale: Math.random() * 1.5 + 0.5 }} animate={{ x: (Math.random() - 0.5) * 400, y: (Math.random() - 0.5) * 400, opacity: 0, scale: 0 }} transition={{ duration: 0.8 + Math.random() * 0.8, ease: 'easeOut' }} className="absolute top-1/2 left-1/2 w-3 h-3 bg-slate-200 rounded-full shadow-[0_0_20px_white]" />
         ))}
         <motion.div initial={{ scale: 0, opacity: 1, rotate: -15 }} animate={{ scale: [1, 2], opacity: [1, 0] }} transition={{ duration: 0.4, ease: 'easeOut' }} className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
            <div className="w-[200%] h-2 bg-white shadow-[0_0_30px_white]" />
@@ -1429,14 +1614,17 @@ function MonsterCardDisplay({ monster, isOpponent = false, isAttacking = false, 
     <motion.div 
       layoutId={monster.instanceId}
       animate={{ 
-        y: isAttacking ? (isOpponent ? 40 : -40) : 0, 
-        scale: isAttacking ? 1.05 : 1,
-        x: isTakingDamage ? [0, -8, 8, -8, 8, 0] : 0,
-        filter: isTakingDamage ? ['brightness(1)', 'brightness(1.5) drop-shadow(0 0 15px red)', 'brightness(1)'] : 'brightness(1)'
+        y: isAttacking ? (isOpponent ? [-15, 60, 0] : [15, -60, 0]) : 0, 
+        scale: isAttacking ? [1, 1.1, 1] : 1,
+        x: isTakingDamage ? [0, -12, 12, -10, 10, -8, 8, 0] : 0,
+        filter: isTakingDamage ? ['brightness(1)', 'brightness(2) drop-shadow(0 0 30px red)', 'brightness(1)'] : 'brightness(1)'
       }}
       transition={{ 
-        layout: { type: 'spring', stiffness: 150, damping: 12 },
-        type: 'spring', stiffness: 400, damping: 15, x: { duration: 0.3 }, filter: { duration: 0.3 }
+        layout: { type: 'spring', stiffness: 250, damping: 20 },
+        y: isAttacking ? { duration: 0.6, times: [0, 0.4, 1], ease: ["easeOut", "easeIn", "easeOut"] } : { type: 'spring', stiffness: 400, damping: 25 },
+        scale: isAttacking ? { duration: 0.6, times: [0, 0.4, 1] } : { type: 'spring', stiffness: 400, damping: 25 },
+        x: { duration: 0.5 }, 
+        filter: { duration: 0.5 }
       }}
       className={`relative z-20 w-36 h-52 ${isTakingDamage ? 'bg-red-950 rounded-xl' : ''}`}
     >
