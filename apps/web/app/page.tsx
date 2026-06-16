@@ -317,6 +317,16 @@ export default function GamePage() {
   const [mainMenuTab, setMainMenuTab] = useState<'PLAY' | 'COLLECTION' | 'MANUAL'>('PLAY');
   const [showGameOver, setShowGameOver] = useState(false);
 
+  // Authentication State
+  const [authErrorMsg, setAuthErrorMsg] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [usernameInput, setUsernameInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [displayNameInput, setDisplayNameInput] = useState('');
+
+  // Unlocked Card Alert State
+  const [unlockedCardAlert, setUnlockedCardAlert] = useState<string | null>(null);
+
   useEffect(() => {
     if (gameState?.phase === 'GAME_OVER') {
       const timer = setTimeout(() => setShowGameOver(true), 2000);
@@ -332,12 +342,10 @@ export default function GamePage() {
   const allCards = [...MONSTERS, ...SPELLS];
 
   useEffect(() => {
-    let pid = localStorage.getItem('duel_monster_player_id');
-    if (!pid) {
-      pid = uuidv4();
-      localStorage.setItem('duel_monster_player_id', pid);
+    let pid = localStorage.getItem('duel_monster_username');
+    if (pid) {
+      setPlayerId(pid);
     }
-    setPlayerId(pid);
 
     const newSocket: Socket<ServerToClientEvents, ClientToServerEvents> = io(SOCKET_URL);
     setSocket(newSocket);
@@ -358,6 +366,21 @@ export default function GamePage() {
 
     newSocket.on('profileUpdate', (profile) => {
       setUserProfile(profile);
+    });
+
+    newSocket.on('cardUnlocked', (cardId) => {
+      setUnlockedCardAlert(cardId);
+    });
+
+    newSocket.on('authSuccess', (profile) => {
+      localStorage.setItem('duel_monster_username', profile.id);
+      setPlayerId(profile.id);
+      setUserProfile(profile);
+      setAuthErrorMsg(null);
+    });
+
+    newSocket.on('authError', (msg) => {
+      setAuthErrorMsg(msg);
     });
 
     newSocket.on('playAnimation', (data: any) => {
@@ -393,6 +416,27 @@ export default function GamePage() {
       initializedPrepRef.current = false;
     }
   }, [gameState?.phase, playerId, gameState]);
+
+  const handleAuthSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthErrorMsg(null);
+    if (authMode === 'LOGIN') {
+      socket?.emit('login', usernameInput, passwordInput);
+    } else {
+      socket?.emit('register', usernameInput, passwordInput, displayNameInput);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('duel_monster_username');
+    localStorage.removeItem('duel_monster_room_id');
+    setPlayerId(null);
+    setUserProfile(null);
+    setGameState(null);
+    setUsernameInput('');
+    setPasswordInput('');
+    setDisplayNameInput('');
+  };
 
   const createRoom = () => { if (playerId) socket?.emit('createRoom', playerId); };
   const joinRoom = () => { if (playerId) socket?.emit('joinRoom', roomIdInput, playerId); };
@@ -547,6 +591,251 @@ export default function GamePage() {
     socket?.emit('selectDeck', selectedCards);
   };
 
+  if (!playerId) {
+    return (
+      <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans overflow-x-hidden relative">
+        {/* Deep starry background with radial glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(20,25,60,0.6)_0%,_rgba(2,5,15,1)_85%)] z-0" />
+        
+        {/* Twinkling stars */}
+        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+          {[...Array(40)].map((_, i) => {
+            const delay = (i % 5) * 1.5;
+            const duration = 2 + (i % 3) * 2;
+            const size = 1 + (i % 3);
+            const top = `${Math.floor((i * 7.7) % 100)}%`;
+            const left = `${Math.floor((i * 13.3) % 100)}%`;
+            return (
+              <motion.div
+                key={`star-${i}`}
+                initial={{ opacity: 0.2 }}
+                animate={{ opacity: [0.2, 1, 0.2] }}
+                transition={{ duration, delay, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute bg-white rounded-full"
+                style={{ top, left, width: `${size}px`, height: `${size}px`, boxShadow: size > 2 ? '0 0 8px rgba(255,255,255,0.8)' : 'none' }}
+              />
+            );
+          })}
+        </div>
+
+        {/* Crescent Moon */}
+        <div className="absolute top-12 right-12 md:right-24 z-0 pointer-events-none opacity-60">
+          <svg width="60" height="60" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="filter drop-shadow-[0_0_15px_rgba(251,243,219,0.3)]">
+            <path d="M75,25 C50,25 35,45 35,65 C35,80 45,90 60,95 C35,95 20,80 20,55 C20,30 40,10 75,25 Z" fill="#fef3c7" />
+          </svg>
+        </div>
+
+        {/* Concept Constellation SVG lines and glowing nodes */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30 z-0">
+          <line x1="10%" y1="20%" x2="30%" y2="15%" stroke="rgba(96, 165, 250, 0.3)" strokeWidth="1" />
+          <line x1="30%" y1="15%" x2="25%" y2="45%" stroke="rgba(96, 165, 250, 0.3)" strokeWidth="1" />
+          <line x1="25%" y1="45%" x2="48%" y2="35%" stroke="rgba(96, 165, 250, 0.3)" strokeWidth="1" />
+          <line x1="48%" y1="35%" x2="40%" y2="65%" stroke="rgba(96, 165, 250, 0.3)" strokeWidth="1" />
+          <line x1="40%" y1="65%" x2="65%" y2="55%" stroke="rgba(96, 165, 250, 0.3)" strokeWidth="1" />
+          <line x1="65%" y1="55%" x2="80%" y2="75%" stroke="rgba(96, 165, 250, 0.3)" strokeWidth="1" />
+          <line x1="80%" y1="75%" x2="90%" y2="50%" stroke="rgba(96, 165, 250, 0.3)" strokeWidth="1" />
+          <line x1="90%" y1="50%" x2="75%" y2="30%" stroke="rgba(96, 165, 250, 0.3)" strokeWidth="1" />
+          <line x1="75%" y1="30%" x2="60%" y2="15%" stroke="rgba(96, 165, 250, 0.3)" strokeWidth="1" />
+
+          {/* Node points */}
+          <circle cx="10%" cy="20%" r="3" fill="#60a5fa" className="animate-pulse" />
+          <circle cx="30%" cy="15%" r="4" fill="#818cf8" className="animate-pulse" />
+          <circle cx="25%" cy="45%" r="3" fill="#a78bfa" className="animate-pulse" />
+          <circle cx="48%" cy="35%" r="5" fill="#60a5fa" className="animate-pulse" />
+          <circle cx="40%" cy="65%" r="3" fill="#818cf8" className="animate-pulse" />
+          <circle cx="65%" cy="55%" r="4.5" fill="#f43f5e" className="animate-pulse" />
+          <circle cx="80%" cy="75%" r="3" fill="#34d399" className="animate-pulse" />
+          <circle cx="90%" cy="50%" r="5" fill="#fbbf24" className="animate-pulse" />
+          <circle cx="75%" cy="30%" r="3.5" fill="#a78bfa" className="animate-pulse" />
+          <circle cx="60%" cy="15%" r="4" fill="#60a5fa" className="animate-pulse" />
+        </svg>
+
+        {/* Landscape Hills Silhouette at bottom */}
+        <div className="absolute bottom-0 left-0 w-full h-40 md:h-56 z-0 pointer-events-none overflow-hidden select-none">
+          <svg className="w-full h-full" viewBox="0 0 1440 320" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0,240C240,270,480,285,720,270C960,255,1200,210,1440,230L1440,320L0,320Z" fill="#040612" />
+            <path d="M0,280C300,240,600,290,900,270C1200,250,1320,285,1440,295L1440,320L0,320Z" fill="#080c22" opacity="0.4" />
+          </svg>
+        </div>
+
+        {/* Header/NavBar */}
+        <header className="relative z-10 max-w-7xl w-full mx-auto px-6 py-6 flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <img src="/symbols/concepto.png" className="w-6 h-6 object-contain" alt="" />
+            <span className="font-mono text-sm tracking-[0.3em] font-black uppercase text-slate-300">DUEL MONSTERS</span>
+          </div>
+          <div className="flex items-center space-x-6">
+            <button 
+              onClick={() => { setAuthMode('LOGIN'); setAuthErrorMsg(null); }}
+              className="text-xs font-mono uppercase tracking-widest text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              Entrar
+            </button>
+            <button 
+              onClick={() => { setAuthMode('REGISTER'); setAuthErrorMsg(null); }}
+              className="text-xs font-mono uppercase tracking-widest px-4 py-2 border border-slate-700/60 rounded-full hover:bg-slate-900/50 hover:border-slate-400 transition-all cursor-pointer"
+            >
+              Registrarse
+            </button>
+          </div>
+        </header>
+
+        {/* Main Content Area */}
+        <main className="relative z-10 flex-grow max-w-7xl w-full mx-auto px-6 py-12 md:py-24 flex flex-col md:flex-row items-center justify-between gap-12">
+          
+          {/* Left Hero Column */}
+          <div className="w-full md:w-1/2 flex flex-col text-left space-y-6">
+            <h1 className="text-4xl md:text-6xl font-serif font-light leading-tight tracking-tight text-white">
+              Explora las ciencias.<br />
+              <span className="font-sans font-black bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent uppercase tracking-wider">
+                Pon tu conocimiento a batallar
+              </span>
+            </h1>
+            <p className="text-slate-400 text-sm md:text-base leading-relaxed max-w-lg">
+              Un juego de cartas estratégico e interactivo donde las disciplinas académicas se transforman en tus recursos de combate. Conecta los conceptos clave para alterar el tablero en tiempo real.
+            </p>
+            <div className="pt-4">
+              <button 
+                onClick={() => { setAuthMode('REGISTER'); setAuthErrorMsg(null); }}
+                className="bg-blue-600/20 hover:bg-blue-600/35 border border-blue-500/50 text-blue-300 px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all cursor-pointer animate-pulse"
+              >
+                Comienza Ahora
+              </button>
+            </div>
+          </div>
+
+          {/* Right Login Card Column */}
+          <div className="w-full md:w-[420px] flex-shrink-0 relative">
+            {/* Glow backdrop behind card */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl blur opacity-20" />
+            
+            <div className="relative bg-slate-900/40 border border-slate-800/80 backdrop-blur-2xl p-8 rounded-3xl shadow-2xl flex flex-col w-full">
+              
+              <div className="flex space-x-2 mb-6 bg-slate-950/60 p-1 rounded-full border border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('LOGIN'); setAuthErrorMsg(null); }}
+                  className={`flex-1 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${authMode === 'LOGIN' ? 'bg-blue-600/90 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Iniciar Sesión
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('REGISTER'); setAuthErrorMsg(null); }}
+                  className={`flex-1 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${authMode === 'REGISTER' ? 'bg-blue-600/90 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Crear Cuenta
+                </button>
+              </div>
+
+              <form onSubmit={handleAuthSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-mono tracking-widest uppercase text-slate-500 mb-1.5 px-3">Nombre de Usuario</label>
+                  <input
+                    type="text"
+                    required
+                    value={usernameInput}
+                    onChange={(e) => setUsernameInput(e.target.value)}
+                    placeholder="ej: yugi_muto"
+                    className="w-full bg-slate-950/60 border border-slate-800/80 p-3 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 text-sm placeholder-slate-700 transition-all shadow-inner text-white px-5"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono tracking-widest uppercase text-slate-500 mb-1.5 px-3">Contraseña</label>
+                  <input
+                    type="password"
+                    required
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-950/60 border border-slate-800/80 p-3 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 text-sm placeholder-slate-700 transition-all shadow-inner text-white px-5"
+                  />
+                </div>
+
+                {authMode === 'REGISTER' && (
+                  <div>
+                    <label className="block text-[10px] font-mono tracking-widest uppercase text-slate-500 mb-1.5 px-3">Nombre de Duelista (Opcional)</label>
+                    <input
+                      type="text"
+                      value={displayNameInput}
+                      onChange={(e) => setDisplayNameInput(e.target.value)}
+                      placeholder="ej: Yugi Muto"
+                      className="w-full bg-slate-950/60 border border-slate-800/80 p-3 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 text-sm placeholder-slate-700 transition-all shadow-inner text-white px-5"
+                    />
+                  </div>
+                )}
+
+                {authErrorMsg && (
+                  <div className="bg-red-950/40 border border-red-900/50 text-red-400 p-3 rounded-2xl text-center text-xs animate-pulse font-mono">
+                    ⚠️ {authErrorMsg}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-3.5 rounded-full font-black transition-all shadow-[0_0_20px_rgba(37,99,235,0.2)] hover:shadow-[0_0_25px_rgba(37,99,235,0.4)] transform hover:-translate-y-0.5 text-xs tracking-widest uppercase mt-6 cursor-pointer"
+                >
+                  {authMode === 'LOGIN' ? 'Entrar a Jugar' : 'Registrar y Entrar'}
+                </button>
+              </form>
+            </div>
+          </div>
+        </main>
+
+        {/* Feature Grid Columns Section (Thin glowing outlines) */}
+        <section className="relative z-10 max-w-7xl w-full mx-auto px-6 py-12 md:py-24 border-t border-slate-900/80 mt-auto bg-slate-950/20 backdrop-blur-sm">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+            
+            {/* Column 1 */}
+            <div className="space-y-3 p-6 rounded-2xl border border-slate-900/60 bg-slate-900/10 hover:border-slate-800/60 transition-all group">
+              <div className="w-10 h-10 rounded-xl bg-blue-950/40 border border-blue-800/30 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="filter drop-shadow-[0_0_5px_rgba(96,165,250,0.5)]">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a3 3 0 00-3-3H9.75a3 3 0 00-3 3h1.5m1.125-3h.008v.008h-.008v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="font-bold text-sm text-slate-200 tracking-wider uppercase">Pensamiento Crítico</h3>
+              <p className="text-slate-400 text-xs leading-relaxed">
+                Conecta los símbolos temáticos de tus monstruos y hechizos en juego para desbloquear y transicionar dinámicamente entre ambientes semánticos.
+              </p>
+            </div>
+
+            {/* Column 2 */}
+            <div className="space-y-3 p-6 rounded-2xl border border-slate-900/60 bg-slate-900/10 hover:border-slate-800/60 transition-all group">
+              <div className="w-10 h-10 rounded-xl bg-blue-950/40 border border-blue-800/30 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="filter drop-shadow-[0_0_5px_rgba(99,102,241,0.5)]">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h7.5v7.5h-7.5v-7.5z" />
+                </svg>
+              </div>
+              <h3 className="font-bold text-sm text-slate-200 tracking-wider uppercase">Tecnología y Ciencia</h3>
+              <p className="text-slate-400 text-xs leading-relaxed">
+                Invoca cartas modeladas en base a conceptos reales de disciplinas clave: Informática, Arquitectura, Clima, Petróleo y Civil.
+              </p>
+            </div>
+
+            {/* Column 3 */}
+            <div className="space-y-3 p-6 rounded-2xl border border-slate-900/60 bg-slate-900/10 hover:border-slate-800/60 transition-all group">
+              <div className="w-10 h-10 rounded-xl bg-blue-950/40 border border-blue-800/30 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="filter drop-shadow-[0_0_5px_rgba(168,85,247,0.5)]">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="font-bold text-sm text-slate-200 tracking-wider uppercase">Progreso Persistente</h3>
+              <p className="text-slate-400 text-xs leading-relaxed">
+                Comienza con un mazo de inicio y gana nuevas cartas a través de victorias en el Modo Aventura, almacenadas individualmente y de forma segura en tu cuenta.
+              </p>
+            </div>
+
+          </div>
+          
+          <div className="mt-8 text-center text-slate-700 text-[10px] font-mono tracking-[0.2em] uppercase">
+            DUEL MONSTERS v0.1.0 • ESTRATEGIA ACADÉMICA INTERACTIVA
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   if (!gameState) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white p-4 md:p-8 overflow-y-auto relative">
@@ -577,6 +866,9 @@ export default function GamePage() {
             </button>
             <button onClick={() => { setMainMenuTab('COLLECTION'); if (playerId) socket?.emit('getProfile', playerId); }} className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all ${mainMenuTab === 'COLLECTION' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
               Colección
+            </button>
+            <button onClick={handleLogout} className="px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all text-red-400 hover:text-red-300 hover:bg-red-950/30">
+              Cerrar Sesión
             </button>
           </div>
 
@@ -1187,23 +1479,23 @@ export default function GamePage() {
           </div>
         </div>
 
-        <div className="h-32 flex justify-center items-start pt-6 space-x-[-15px]">
+        <div className="flex-shrink-0 h-24 sm:h-32 flex justify-center items-start pt-2 sm:pt-6 space-x-[-15px]">
           {opponent?.hand.map((_, i) => (
-            <div key={i} className="w-20 h-28 bg-gradient-to-br from-red-900 to-slate-900 rounded-xl border-2 border-red-900/50 shadow-xl transform hover:-translate-y-2 transition-transform flex items-center justify-center">
-              <div className="w-12 h-16 border border-red-800/30 rounded-lg flex items-center justify-center opacity-40">
-                <img src="/symbols/cartas.png" alt="Carta" className="w-8 h-8 object-contain drop-shadow-md" />
+            <div key={i} className="w-14 h-20 sm:w-16 sm:h-22 md:w-18 md:h-26 lg:w-20 lg:h-28 bg-gradient-to-br from-red-900 to-slate-900 rounded-xl border-2 border-red-900/50 shadow-xl transform hover:-translate-y-2 transition-transform flex items-center justify-center">
+              <div className="w-3/5 h-3/5 border border-red-800/30 rounded-lg flex items-center justify-center opacity-40">
+                <img src="/symbols/cartas.png" alt="Carta" className="w-full h-full object-contain drop-shadow-md" />
               </div>
             </div>
           ))}
         </div>
 
-        <div className="absolute top-[130px] bottom-[260px] left-0 w-full flex flex-col justify-center gap-12 sm:gap-16 items-center z-10 transform scale-[0.75] sm:scale-[0.85] md:scale-100 origin-center pointer-events-none">
+        <div className="flex-grow flex flex-col justify-center gap-4 sm:gap-6 items-center z-10 pointer-events-none transform scale-[0.75] sm:scale-[0.85] md:scale-95 lg:scale-100 origin-center py-2">
           
           <div className="grid grid-cols-3 gap-4 sm:gap-6 w-full max-w-2xl justify-items-center pointer-events-auto">
             {[0, 1, 2].map(i => {
               const m = opponent?.monsterZone?.[i];
               return (
-                <div key={`opp-slot-${i}`} onClick={() => handleOpponentSlotClick(i)} className={`w-32 h-48 sm:w-36 sm:h-52 flex items-center justify-center relative cursor-pointer`}>
+                <div key={`opp-slot-${i}`} onClick={() => handleOpponentSlotClick(i)} className="w-24 h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 flex items-center justify-center relative cursor-pointer">
                   <motion.div variants={layer3SlotVariants as any} className="absolute inset-0 rounded-2xl -z-10" />
                   <AnimatePresence mode="popLayout">
                     {m && (
@@ -1231,7 +1523,7 @@ export default function GamePage() {
               const m = me?.monsterZone?.[i];
               const isSelectedTarget = selectedActionCard && me?.hand.find(c => c.id === selectedActionCard)?.type === 'MONSTER' && !m;
               return (
-                <div key={`my-slot-${i}`} onClick={() => handleMySlotClick(i)} className={`w-32 h-48 sm:w-36 sm:h-52 flex items-center justify-center relative cursor-pointer hover:-translate-y-2 transition-transform ${isSelectedTarget ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}>
+                <div key={`my-slot-${i}`} onClick={() => handleMySlotClick(i)} className={`w-24 h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 flex items-center justify-center relative cursor-pointer hover:-translate-y-2 transition-transform ${isSelectedTarget ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}>
                   <motion.div variants={layer3SlotVariants as any} className="absolute inset-0 rounded-2xl -z-10" />
                   <AnimatePresence mode="popLayout">
                     {m && (
@@ -1254,7 +1546,7 @@ export default function GamePage() {
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 w-full p-6 flex justify-between items-end z-20 pointer-events-none bg-transparent">
+        <div className="flex-shrink-0 w-full p-4 sm:p-6 flex justify-between items-end z-20 pointer-events-none bg-transparent">
           <div className="flex space-x-6 items-end pointer-events-auto">
             
             <div className="flex flex-col items-center justify-center">
@@ -1263,19 +1555,19 @@ export default function GamePage() {
                   Mazo: {me?.deck.length || 0}
                 </span>
               </div>
-              <button onClick={drawCard} disabled={!isMyTurn || me?.hasDrawnThisTurn || me?.deck.length === 0} className={`relative w-20 h-32 rounded-xl border-2 transition-all duration-300 group cursor-pointer ${!isMyTurn || me?.hasDrawnThisTurn || me?.deck.length === 0 ? 'bg-slate-800 border-slate-700 opacity-50 grayscale pointer-events-none' : 'bg-gradient-to-br from-indigo-800 to-slate-900 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:scale-105 hover:shadow-[0_0_20px_rgba(59,130,246,0.6)]'}`}>
+              <button onClick={drawCard} disabled={!isMyTurn || me?.hasDrawnThisTurn || me?.deck.length === 0} className={`relative w-14 h-22 sm:w-16 sm:h-26 md:w-18 md:h-28 lg:w-20 lg:h-32 rounded-xl border-2 transition-all duration-300 group cursor-pointer ${!isMyTurn || me?.hasDrawnThisTurn || me?.deck.length === 0 ? 'bg-slate-800 border-slate-700 opacity-50 grayscale pointer-events-none' : 'bg-gradient-to-br from-indigo-800 to-slate-900 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:scale-105 hover:shadow-[0_0_20px_rgba(59,130,246,0.6)]'}`}>
                 <div className={`absolute -bottom-1 -right-1 w-full h-full rounded-xl border border-slate-700/50 -z-10 ${!isMyTurn || me?.hasDrawnThisTurn ? 'bg-slate-800' : 'bg-slate-900'}`}></div>
                 <div className={`absolute -bottom-2 -right-2 w-full h-full rounded-xl border border-slate-700/30 -z-20 ${!isMyTurn || me?.hasDrawnThisTurn ? 'bg-slate-800' : 'bg-slate-900'}`}></div>
                 <div className="w-full h-full flex flex-col items-center justify-center">
-                  <img src="/symbols/cartas.png" alt="Robar" className="w-10 h-10 mb-1 object-contain filter drop-shadow-md group-hover:animate-bounce" />
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${(!isMyTurn || me?.hasDrawnThisTurn || me?.deck.length === 0) ? 'text-slate-500' : 'text-blue-300'}`}>
+                  <img src="/symbols/cartas.png" alt="Robar" className="w-6 h-6 sm:w-8 sm:h-8 mb-1 object-contain filter drop-shadow-md group-hover:animate-bounce" />
+                  <span className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-wider ${(!isMyTurn || me?.hasDrawnThisTurn || me?.deck.length === 0) ? 'text-slate-500' : 'text-blue-300'}`}>
                     {me?.hasDrawnThisTurn ? 'Robado' : (me?.deck.length === 0 ? 'Vacío' : 'Robar')}
                   </span>
                 </div>
               </button>
             </div>
 
-            <div className="w-px h-32 bg-slate-800 mx-2"></div>
+            <div className="w-px h-24 sm:h-32 bg-slate-800 mx-2"></div>
 
             <div className="flex space-x-4 overflow-x-auto custom-scrollbar px-2 pb-2 max-w-[50vw]">
               <AnimatePresence>
@@ -1289,18 +1581,18 @@ export default function GamePage() {
                   transition={{ type: 'spring', stiffness: 200, damping: 15 }}
                   onClick={() => handleHandCardClick(card)}
                   disabled={!isMyTurn || isActionLocked}
-                  className={`group relative transition-all duration-300 hover:-translate-y-6 hover:scale-105 disabled:hover:translate-y-0 disabled:hover:scale-100 text-left flex-shrink-0 w-36 h-52 ${selectedActionCard === card.id ? '-translate-y-6 ring-4 ring-blue-500 rounded-xl shadow-2xl' : 'hover:shadow-2xl hover:shadow-blue-900/50'}`}
+                  className={`group relative transition-all duration-300 hover:-translate-y-6 hover:scale-105 disabled:hover:translate-y-0 disabled:hover:scale-100 text-left flex-shrink-0 w-24 h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 ${selectedActionCard === card.id ? '-translate-y-6 ring-4 ring-blue-500 rounded-xl shadow-2xl' : 'hover:shadow-2xl hover:shadow-blue-900/50'}`}
                 >
                   <GameCardContent card={card} onPreview={() => setPreviewCardId(card.id)} />
                   {isMyTurn && !isActionLocked && selectedActionCard !== card.id && (
                     <div className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 flex items-center justify-center pointer-events-none border-2 ${card.type === 'MONSTER' ? 'bg-blue-500/20 border-blue-400' : 'bg-emerald-500/20 border-emerald-400'}`}>
-                      <span className={`${card.type === 'MONSTER' ? 'bg-blue-600' : 'bg-emerald-600'} text-[10px] px-2 py-1 rounded font-bold`}>
+                      <span className={`${card.type === 'MONSTER' ? 'bg-blue-600' : 'bg-emerald-600'} text-[8px] sm:text-[10px] px-1.5 py-0.5 sm:px-2 sm:py-1 rounded font-bold`}>
                         {card.type === 'MONSTER' ? 'SELECCIONAR' : 'SELECCIONAR'}
                       </span>
                     </div>
                   )}
                   {selectedActionCard === card.id && (
-                    <div className="absolute -top-3 -right-3 bg-blue-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold z-10 animate-bounce">
+                    <div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 bg-blue-500 text-white w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center font-bold z-10 animate-bounce text-xs">
                       !
                     </div>
                   )}
@@ -1428,6 +1720,71 @@ export default function GamePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {unlockedCardAlert && (
+          <motion.div 
+            initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} 
+            animate={{ opacity: 1, backdropFilter: 'blur(12px)' }} 
+            exit={{ opacity: 0, backdropFilter: 'blur(0px)' }} 
+            className="fixed inset-0 bg-slate-950/80 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.8, y: 50, opacity: 0 }} 
+              animate={{ scale: 1, y: 0, opacity: 1 }} 
+              exit={{ scale: 0.8, y: 50, opacity: 0 }} 
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }} 
+              onClick={(e) => e.stopPropagation()} 
+              className="bg-slate-900/90 border-2 border-indigo-500/50 rounded-2xl shadow-[0_0_50px_rgba(99,102,241,0.4)] max-w-2xl w-full p-8 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden backdrop-blur-xl"
+            >
+              {/* Starry Night glowing accents */}
+              <div className="absolute -top-20 -left-20 w-48 h-48 bg-indigo-600/30 rounded-full blur-[60px] pointer-events-none" />
+              <div className="absolute -bottom-20 -right-20 w-48 h-48 bg-blue-600/30 rounded-full blur-[60px] pointer-events-none" />
+              
+              {/* Unlocked Card display */}
+              <div className="w-64 h-96 flex-shrink-0 relative">
+                {(() => {
+                  const card = allCards.find(c => c.id === unlockedCardAlert);
+                  return card ? (
+                    <GameCardContent card={card} isExpanded={true} />
+                  ) : (
+                    <div className="w-full h-full border-2 border-dashed border-slate-700 rounded-xl flex items-center justify-center text-slate-500">
+                      Carta no encontrada
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Text content & action */}
+              <div className="flex-grow flex flex-col text-center md:text-left">
+                <div className="inline-flex items-center justify-center md:justify-start gap-2 text-indigo-400 font-extrabold uppercase tracking-wider text-sm mb-3">
+                  <span className="text-xl">✨</span> ¡Nuevo Conocimiento Adquirido!
+                </div>
+                <h2 className="text-3xl font-extrabold text-white mb-4 leading-tight bg-clip-text bg-gradient-to-r from-white via-indigo-200 to-blue-300">
+                  ¡Felicidades!
+                </h2>
+                <p className="text-slate-300 text-lg leading-relaxed mb-6 font-medium">
+                  felicidades: haz adquirido nuevo conocimiento, una carta aliada se ha añadido a tu colección
+                </p>
+                <button 
+                  onClick={() => setUnlockedCardAlert(null)} 
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200 cursor-pointer shadow-[0_0_20px_rgba(99,102,241,0.4)] active:scale-95"
+                >
+                  Entendido
+                </button>
+              </div>
+
+              {/* Close button in top-right */}
+              <button 
+                onClick={() => setUnlockedCardAlert(null)} 
+                className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors text-xl font-bold cursor-pointer w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-800"
+              >
+                ✕
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -1490,8 +1847,12 @@ function GameCardContent({ card, isOpponent, defensePercentage = 100, isTakingDa
           />
         ) : (
           <>
-            {/* Giant faint W */}
-            <span className={`${isExpanded ? 'text-9xl' : 'text-8xl'} font-serif text-slate-100/5 absolute select-none pointer-events-none`}>W</span>
+            {/* Giant faint University Logo */}
+            <img 
+              src="/symbols/logo_universidad.png" 
+              alt="Logo Universidad" 
+              className={`${isExpanded ? 'w-48 h-48' : 'w-24 h-24'} opacity-15 absolute select-none pointer-events-none object-contain`} 
+            />
             
             {/* Card Name Centered */}
             <p className={`text-center ${isExpanded ? 'text-2xl' : 'text-xs'} font-serif font-bold text-slate-200 z-10 px-2 drop-shadow-md`}>
@@ -1582,7 +1943,7 @@ function MonsterCardDisplay({ monster, isOpponent = false, isAttacking = false, 
     }
     if (isAcid) {
       return (
-        <div className="relative w-36 h-52 z-30 pointer-events-none">
+        <div className="relative w-24 h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 z-30 pointer-events-none">
           <motion.div initial={{ opacity: 1, scaleY: 1, y: 0, filter: 'drop-shadow(0 0 15px #22c55e)' }} animate={{ opacity: 0, scaleY: 0, y: 120, filter: 'drop-shadow(0 0 30px #22c55e) blur(4px) contrast(150%)' }} transition={{ duration: 1.5, ease: 'easeIn' }} onAnimationComplete={safeToRemove} className="absolute inset-0 origin-bottom">
             <GameCardContent card={monster} isOpponent={isOpponent} defensePercentage={defensePercentage} isTakingDamage={false} />
           </motion.div>
@@ -1592,7 +1953,7 @@ function MonsterCardDisplay({ monster, isOpponent = false, isAttacking = false, 
     
     // Normal Destruction animation
     return (
-      <div className="relative w-36 h-52 z-30 pointer-events-none">
+      <div className="relative w-24 h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 z-30 pointer-events-none">
         <motion.div initial={{ x: 0, y: 0, opacity: 1, filter: 'grayscale(0%) blur(0px)' }} animate={{ x: -40, y: -40, opacity: 0, filter: 'grayscale(100%) blur(10px)', rotate: -15, scale: 0 }} transition={{ duration: 1.2, ease: 'easeOut' }} style={{ clipPath: 'polygon(0 0, 100% 0, 100% 40%, 0 60%)' }} className="absolute inset-0" onAnimationComplete={safeToRemove}>
           <GameCardContent card={monster} isOpponent={isOpponent} defensePercentage={defensePercentage} isTakingDamage={false} />
         </motion.div>
@@ -1626,7 +1987,7 @@ function MonsterCardDisplay({ monster, isOpponent = false, isAttacking = false, 
         x: { duration: 0.5 }, 
         filter: { duration: 0.5 }
       }}
-      className={`relative z-20 w-36 h-52 ${isTakingDamage ? 'bg-red-950 rounded-xl' : ''}`}
+      className={`relative z-20 w-24 h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 ${isTakingDamage ? 'bg-red-950 rounded-xl' : ''}`}
     >
       <AnimatePresence>
         {isTakingDamage && (

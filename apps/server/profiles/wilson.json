@@ -1,0 +1,19 @@
+{
+  "id": "wilson",
+  "name": "Yugi Muto",
+  "password": "yolmer75",
+  "pveWins": 5,
+  "cardInventory": {
+    "m1": 1,
+    "m2": 1,
+    "m3": 1,
+    "m4": 1,
+    "m5": 1,
+    "s1": 1,
+    "s2": 1,
+    "s3": 1,
+    "s4": 1,
+    "s5": 1,
+    "m13": 1
+  }
+}

@@ -1,34 +1,64 @@
 import { UserProfile, Card, MONSTERS, SPELLS } from '@repo/game-types';
+import fs from 'fs';
+import path from 'path';
 
-// Base de datos en memoria para los perfiles de usuario (Mock de PostgreSQL)
-const usersDb = new Map<string, UserProfile>();
+// Local storage for user profiles on disk
+const PROFILES_DIR = path.join(process.cwd(), 'profiles');
+
+// Ensure directory exists
+if (!fs.existsSync(PROFILES_DIR)) {
+  fs.mkdirSync(PROFILES_DIR, { recursive: true });
+}
+
+function getProfilePath(id: string): string {
+  // Prevent directory traversal
+  const safeId = id.replace(/[^a-zA-Z0-9-]/g, '');
+  return path.join(PROFILES_DIR, `${safeId}.json`);
+}
+
+export function saveUserProfile(profile: UserProfile) {
+  const filePath = getProfilePath(profile.id);
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(profile, null, 2), 'utf8');
+  } catch (err) {
+    console.error(`[USER DB] Error writing profile for ${profile.id}:`, err);
+  }
+}
 
 export function getUserProfile(id: string): UserProfile {
-  if (!usersDb.has(id)) {
-    const initialInventory: Record<string, number> = {};
-    const allCards = [...MONSTERS, ...SPELLS];
-    
-    // Give exactly 1 copy of all base cards (non-unlockable)
-    allCards.forEach(c => {
-      if (!c.isUnlockable) {
-        initialInventory[c.id] = 1;
-      }
-    });
-
-    usersDb.set(id, {
-      id,
-      name: 'Estudiante',
-      pveWins: 0,
-      cardInventory: initialInventory
-    });
+  const filePath = getProfilePath(id);
+  if (fs.existsSync(filePath)) {
+    try {
+      const data = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(data);
+    } catch (err) {
+      console.error(`[USER DB] Error reading profile for ${id}, creating new one`, err);
+    }
   }
-  return usersDb.get(id)!;
+
+  // Create new profile with starter cards only (non-unlockable)
+  const initialInventory: Record<string, number> = {};
+  const allCards = [...MONSTERS, ...SPELLS];
+  
+  allCards.forEach(c => {
+    if (!c.isUnlockable) {
+      initialInventory[c.id] = 1;
+    }
+  });
+
+  const profile: UserProfile = {
+    id,
+    name: 'Estudiante',
+    pveWins: 0,
+    cardInventory: initialInventory
+  };
+
+  saveUserProfile(profile);
+  return profile;
 }
 
 export async function addStudentProgress(data: { studentId: string; concept: string; masteryPoints: number }) {
-  // Mock PostgreSQL sync
   console.log(`[DB SYNC] Guardando progreso de ${data.studentId}: ${data.concept} (+${data.masteryPoints} XP)`);
-  // Here we could update usersDb if we extended UserProfile to track XP per concept
 }
 
 export function addWin(id: string): { profile: UserProfile; unlockedCard?: Card } {
@@ -53,5 +83,69 @@ export function addWin(id: string): { profile: UserProfile; unlockedCard?: Card 
     }
   }
 
+  saveUserProfile(profile);
   return { profile, unlockedCard };
 }
+
+export function registerUser(username: string, password: string, displayName: string): { success: boolean; message: string; profile?: UserProfile } {
+  const cleanUsername = username.trim().toLowerCase().replace(/[^a-zA-Z0-9-]/g, '');
+  if (!cleanUsername) {
+    return { success: false, message: 'Nombre de usuario inválido.' };
+  }
+  
+  const filePath = getProfilePath(cleanUsername);
+  if (fs.existsSync(filePath)) {
+    return { success: false, message: 'El usuario ya existe.' };
+  }
+
+  const initialInventory: Record<string, number> = {};
+  const allCards = [...MONSTERS, ...SPELLS];
+  allCards.forEach(c => {
+    if (!c.isUnlockable) {
+      initialInventory[c.id] = 1;
+    }
+  });
+
+  const profile = {
+    id: cleanUsername,
+    name: displayName?.trim() || username,
+    password: password,
+    pveWins: 0,
+    cardInventory: initialInventory
+  };
+
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(profile, null, 2), 'utf8');
+    const { password: _, ...cleanProfile } = profile;
+    return { success: true, message: 'Usuario registrado con éxito.', profile: cleanProfile };
+  } catch (err) {
+    console.error(`[USER DB] Error registering user ${cleanUsername}:`, err);
+    return { success: false, message: 'Error al crear la cuenta en el servidor.' };
+  }
+}
+
+export function loginUser(username: string, password: string): { success: boolean; message: string; profile?: UserProfile } {
+  const cleanUsername = username.trim().toLowerCase().replace(/[^a-zA-Z0-9-]/g, '');
+  if (!cleanUsername) {
+    return { success: false, message: 'Nombre de usuario inválido.' };
+  }
+
+  const filePath = getProfilePath(cleanUsername);
+  if (!fs.existsSync(filePath)) {
+    return { success: false, message: 'El usuario no existe.' };
+  }
+
+  try {
+    const data = fs.readFileSync(filePath, 'utf8');
+    const profile = JSON.parse(data);
+    if (profile.password !== password) {
+      return { success: false, message: 'Contraseña incorrecta.' };
+    }
+    const { password: _, ...cleanProfile } = profile;
+    return { success: true, message: 'Sesión iniciada con éxito.', profile: cleanProfile };
+  } catch (err) {
+    console.error(`[USER DB] Error logging in user ${cleanUsername}:`, err);
+    return { success: false, message: 'Error al iniciar sesión en el servidor.' };
+  }
+}
+

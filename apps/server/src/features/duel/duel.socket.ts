@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import { GameState, PlayerState, MonsterCard, SpellCard, ClientToServerEvents, ServerToClientEvents, MONSTERS, SPELLS, Card, getCardCareers } from '@repo/game-types';
-import { getUserProfile, addStudentProgress } from './user.service.js';
+import { getUserProfile, addStudentProgress, addWin, loginUser, registerUser } from './user.service.js';
 import { createInitialPlayerState as createCpuPlayerState } from './duel.service.js';
 import { validateAcademicAction } from './academic-validator.js';
 
@@ -9,7 +9,7 @@ const games: Record<string, GameState> = {};
 const socketToPlayerId: Record<string, string> = {};
 const playerIdToRoom: Record<string, string> = {};
 
-function createInitialPlayerState(id: string, name: string): PlayerState {
+function createInitialPlayerState(id: string, name: string, unlockedCardIds: string[] = []): PlayerState {
   return {
     id,
     name,
@@ -21,7 +21,7 @@ function createInitialPlayerState(id: string, name: string): PlayerState {
     monsterZone: [null, null, null],
     defeatedMonsters: [],
     hasDrawnThisTurn: false,
-    unlockedCardIds: []
+    unlockedCardIds
   };
 }
 
@@ -29,12 +29,30 @@ function checkGameOver(game: GameState, p1: string, p2: string, io?: Server<Clie
   if (game.players[p1].hp <= 0) {
     game.phase = 'GAME_OVER';
     game.winner = p2;
-    if (io && roomId) io.to(roomId).emit('gameUpdate', game);
+    if (io && roomId) {
+      if (roomId.startsWith('PVE-') && p2 !== 'cpu') {
+        const { profile, unlockedCard } = addWin(p2);
+        io.to(roomId).emit('profileUpdate', profile);
+        if (unlockedCard) {
+          io.to(roomId).emit('cardUnlocked', unlockedCard.id);
+        }
+      }
+      io.to(roomId).emit('gameUpdate', game);
+    }
     return true;
   } else if (game.players[p2].hp <= 0) {
     game.phase = 'GAME_OVER';
     game.winner = p1;
-    if (io && roomId) io.to(roomId).emit('gameUpdate', game);
+    if (io && roomId) {
+      if (roomId.startsWith('PVE-') && p1 !== 'cpu') {
+        const { profile, unlockedCard } = addWin(p1);
+        io.to(roomId).emit('profileUpdate', profile);
+        if (unlockedCard) {
+          io.to(roomId).emit('cardUnlocked', unlockedCard.id);
+        }
+      }
+      io.to(roomId).emit('gameUpdate', game);
+    }
     return true;
   }
   return false;
@@ -84,6 +102,24 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
   io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
+    socket.on('login', (username, password) => {
+      const result = loginUser(username, password);
+      if (result.success && result.profile) {
+        socket.emit('authSuccess', result.profile);
+      } else {
+        socket.emit('authError', result.message);
+      }
+    });
+
+    socket.on('register', (username, password, displayName) => {
+      const result = registerUser(username, password, displayName);
+      if (result.success && result.profile) {
+        socket.emit('authSuccess', result.profile);
+      } else {
+        socket.emit('authError', result.message);
+      }
+    });
+
     socket.on('createRoom', (playerId) => {
       const roomId = uuidv4().substring(0, 6).toUpperCase();
       games[roomId] = {
@@ -101,7 +137,9 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       socketToPlayerId[socket.id] = playerId;
       playerIdToRoom[playerId] = roomId;
       
-      games[roomId].players[playerId] = createInitialPlayerState(playerId, 'Jugador 1');
+      const profile = getUserProfile(playerId);
+      const unlockedIds = Object.keys(profile.cardInventory).filter(cardId => profile.cardInventory[cardId] > 0);
+      games[roomId].players[playerId] = createInitialPlayerState(playerId, 'Jugador 1', unlockedIds);
       
       socket.emit('roomCreated', roomId);
       io.to(roomId).emit('gameUpdate', games[roomId]);
@@ -130,7 +168,8 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       playerIdToRoom[playerId] = roomId;
       
       const profile = getUserProfile(playerId);
-      games[roomId].players[playerId] = createInitialPlayerState(playerId, profile.name || 'Jugador');
+      const unlockedIds = Object.keys(profile.cardInventory).filter(cardId => profile.cardInventory[cardId] > 0);
+      games[roomId].players[playerId] = createInitialPlayerState(playerId, profile.name || 'Jugador', unlockedIds);
       games[roomId].players['cpu'] = createCpuPlayerState('cpu', 'CPU (Bot)', profile);
       games[roomId].players['cpu'].ready = true;
       
@@ -167,7 +206,8 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       playerIdToRoom[playerId] = roomId;
       
       const profile = getUserProfile(playerId);
-      games[roomId].players[playerId] = createInitialPlayerState(playerId, profile.name || 'Jugador');
+      const unlockedIds = Object.keys(profile.cardInventory).filter(cardId => profile.cardInventory[cardId] > 0);
+      games[roomId].players[playerId] = createInitialPlayerState(playerId, profile.name || 'Jugador', unlockedIds);
       games[roomId].players['cpu'] = createCpuPlayerState('cpu', 'CPU (Bot)', profile);
       games[roomId].players['cpu'].ready = true;
       
@@ -196,7 +236,9 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       playerIdToRoom[playerId] = roomId;
       
       if (!game.players[playerId]) {
-        game.players[playerId] = createInitialPlayerState(playerId, 'Jugador 2');
+        const profile = getUserProfile(playerId);
+        const unlockedIds = Object.keys(profile.cardInventory).filter(cardId => profile.cardInventory[cardId] > 0);
+        game.players[playerId] = createInitialPlayerState(playerId, 'Jugador 2', unlockedIds);
         game.logs.push(`Jugador unido a la sala ${roomId}.`);
       }
       
@@ -209,6 +251,8 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
         socket.join(roomId);
         socketToPlayerId[socket.id] = playerId;
         playerIdToRoom[playerId] = roomId;
+        const profile = getUserProfile(playerId);
+        socket.emit('profileUpdate', profile);
         io.to(roomId).emit('gameUpdate', game);
       }
     });
@@ -338,6 +382,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       monster.instanceId = monster.instanceId || uuidv4();
       player.monsterZone[positionIndex] = monster;
       game.logs.push(`${player.name} invoca a ${monster.name} en la zona ${positionIndex + 1}.`);
+      updateDominantTheme(game);
 
       // Sincronización de Conocimiento
       addStudentProgress({
@@ -469,6 +514,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
                     games[roomId].players[opponentId].monsterZone[idx] = null;
                   }
                 });
+                updateDominantTheme(games[roomId]);
                 io.to(roomId).emit('gameUpdate', games[roomId]);
                 checkGameOver(games[roomId], playerId!, opponentId, io, roomId);
               }
@@ -489,6 +535,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
                 games[roomId].players[opponentId].deck.push(m);
                 games[roomId].players[opponentId].monsterZone[targetIndex!] = null;
               }
+              updateDominantTheme(games[roomId]);
               io.to(roomId).emit('gameUpdate', games[roomId]);
             }
           }, 1500);
@@ -508,6 +555,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
                 games[roomId].players[opponentId].defeatedMonsters.push(m);
                 games[roomId].players[opponentId].monsterZone[targetIndex!] = null;
               }
+              updateDominantTheme(games[roomId]);
               io.to(roomId).emit('gameUpdate', games[roomId]);
               checkGameOver(games[roomId], playerId!, opponentId, io, roomId);
             }
@@ -546,6 +594,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
                player.monsterZone[emptySlot] = { ...randomMonster, instanceId: Math.random().toString(36).substring(7) } as any;
                player.hand = player.hand.filter(c => c.id !== randomMonster.id);
                game.logs.push(`${player.name} invoca a ${randomMonster.name} gratis mediante Modus Ponens.`);
+               updateDominantTheme(game);
             }
           } else {
             game.logs.push(`Modus Ponens falla porque no hay conclusiones en la mano.`);
@@ -633,6 +682,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
           const drawnCard = player.deck.shift();
           if (drawnCard) player.hand.push(drawnCard);
           game.logs.push(`${player.name} devuelve un monstruo a la mano y roba una carta.`);
+          updateDominantTheme(game);
           break;
         case 's24': 
           if (!isAllyTarget) { socket.emit('error', 'Debes apuntar a un aliado.'); return; }
@@ -741,6 +791,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
                 games[roomId].logs.push(`${targetMonster.name} pierde ${attacker.m.attack} de defensa.`);
               }
               
+              updateDominantTheme(games[roomId]);
               io.to(roomId).emit('gameUpdate', games[roomId]);
               if (checkGameOver(games[roomId], playerId!, opponentId, io, roomId)) return;
               executeNextAttack(attackersIndex + 1);
@@ -832,10 +883,12 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
                 games[roomId].players[opponentId].hp -= damage;
                 games[roomId].logs.push(`${opponent.name} recibe ${damage} de daño residual.`);
               }
+              updateDominantTheme(games[roomId]);
               checkGameOver(games[roomId], playerId!, opponentId, io, roomId);
             } else {
               targetMonster.defense -= attacker.attack;
               games[roomId].logs.push(`${targetMonster.name} pierde ${attacker.attack} de defensa.`);
+              updateDominantTheme(games[roomId]);
             }
             io.to(roomId).emit('gameUpdate', games[roomId]);
           }
@@ -910,6 +963,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
           cpu.hand = cpu.hand.filter(c => c.instanceId !== m.instanceId);
           cpu.monsterZone[z] = { ...m, hasAttacked: true, modifiers: [] } as any;
           game.logs.push(`CPU invoca a ${m.name}.`);
+          updateDominantTheme(game);
           io.to(roomId).emit('gameUpdate', game);
         }
 
@@ -954,6 +1008,8 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
               game.logs.push(`CPU: ${attacker.m.name} ataca directamente y causa ${attacker.m.attack} de daño.`);
             }
           });
+          
+          updateDominantTheme(game);
           
           if (checkGameOver(game, 'cpu', humanId, io, roomId)) {
             io.to(roomId).emit('gameUpdate', game);
