@@ -37,7 +37,7 @@ function AnimatedNumber({ value }: { value: number }) {
   return <span ref={ref}>{value}</span>;
 }
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://duel-monster-pcba--mapachewilson.replit.app';
 
 const BOARD_THEMES: Record<string, any> = {
   NEUTRAL: {
