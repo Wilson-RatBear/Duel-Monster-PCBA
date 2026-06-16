@@ -31,11 +31,14 @@ function checkGameOver(game: GameState, p1: string, p2: string, io?: Server<Clie
     game.winner = p2;
     if (io && roomId) {
       if (roomId.startsWith('PVE-') && p2 !== 'cpu') {
-        const { profile, unlockedCard } = addWin(p2);
-        io.to(roomId).emit('profileUpdate', profile);
-        if (unlockedCard) {
-          io.to(roomId).emit('cardUnlocked', unlockedCard.id);
-        }
+        addWin(p2).then(({ profile, unlockedCard }) => {
+          io.to(roomId).emit('profileUpdate', profile);
+          if (unlockedCard) {
+            io.to(roomId).emit('cardUnlocked', unlockedCard.id);
+          }
+        }).catch(err => {
+          console.error("Error adding win:", err);
+        });
       }
       io.to(roomId).emit('gameUpdate', game);
     }
@@ -45,11 +48,14 @@ function checkGameOver(game: GameState, p1: string, p2: string, io?: Server<Clie
     game.winner = p1;
     if (io && roomId) {
       if (roomId.startsWith('PVE-') && p1 !== 'cpu') {
-        const { profile, unlockedCard } = addWin(p1);
-        io.to(roomId).emit('profileUpdate', profile);
-        if (unlockedCard) {
-          io.to(roomId).emit('cardUnlocked', unlockedCard.id);
-        }
+        addWin(p1).then(({ profile, unlockedCard }) => {
+          io.to(roomId).emit('profileUpdate', profile);
+          if (unlockedCard) {
+            io.to(roomId).emit('cardUnlocked', unlockedCard.id);
+          }
+        }).catch(err => {
+          console.error("Error adding win:", err);
+        });
       }
       io.to(roomId).emit('gameUpdate', game);
     }
@@ -102,8 +108,8 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
   io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
-    socket.on('login', (username, password) => {
-      const result = loginUser(username, password);
+    socket.on('login', async (username, password) => {
+      const result = await loginUser(username, password);
       if (result.success && result.profile) {
         socket.emit('authSuccess', result.profile);
       } else {
@@ -111,8 +117,8 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       }
     });
 
-    socket.on('register', (username, password, displayName) => {
-      const result = registerUser(username, password, displayName);
+    socket.on('register', async (username, password, displayName) => {
+      const result = await registerUser(username, password, displayName);
       if (result.success && result.profile) {
         socket.emit('authSuccess', result.profile);
       } else {
@@ -120,7 +126,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       }
     });
 
-    socket.on('createRoom', (playerId) => {
+    socket.on('createRoom', async (playerId) => {
       const roomId = uuidv4().substring(0, 6).toUpperCase();
       games[roomId] = {
         roomId,
@@ -137,7 +143,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       socketToPlayerId[socket.id] = playerId;
       playerIdToRoom[playerId] = roomId;
       
-      const profile = getUserProfile(playerId);
+      const profile = await getUserProfile(playerId);
       const unlockedIds = Object.keys(profile.cardInventory).filter(cardId => profile.cardInventory[cardId] > 0);
       games[roomId].players[playerId] = createInitialPlayerState(playerId, 'Jugador 1', unlockedIds);
       
@@ -145,12 +151,12 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       io.to(roomId).emit('gameUpdate', games[roomId]);
     });
 
-    socket.on('getProfile', (playerId) => {
-      const profile = getUserProfile(playerId);
+    socket.on('getProfile', async (playerId) => {
+      const profile = await getUserProfile(playerId);
       socket.emit('profileUpdate', profile);
     });
 
-    socket.on('joinAdventure', (playerId) => {
+    socket.on('joinAdventure', async (playerId) => {
       const roomId = `PVE-${uuidv4().substring(0, 6)}`;
       games[roomId] = {
         roomId,
@@ -167,7 +173,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       socketToPlayerId[socket.id] = playerId;
       playerIdToRoom[playerId] = roomId;
       
-      const profile = getUserProfile(playerId);
+      const profile = await getUserProfile(playerId);
       const unlockedIds = Object.keys(profile.cardInventory).filter(cardId => profile.cardInventory[cardId] > 0);
       games[roomId].players[playerId] = createInitialPlayerState(playerId, profile.name || 'Jugador', unlockedIds);
       games[roomId].players['cpu'] = createCpuPlayerState('cpu', 'CPU (Bot)', profile);
@@ -182,7 +188,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       }
     });
 
-    socket.on('nextAdventureEncounter', (playerId) => {
+    socket.on('nextAdventureEncounter', async (playerId) => {
       const oldRoomId = playerIdToRoom[playerId];
       if (oldRoomId) {
         socket.leave(oldRoomId);
@@ -205,7 +211,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       socketToPlayerId[socket.id] = playerId;
       playerIdToRoom[playerId] = roomId;
       
-      const profile = getUserProfile(playerId);
+      const profile = await getUserProfile(playerId);
       const unlockedIds = Object.keys(profile.cardInventory).filter(cardId => profile.cardInventory[cardId] > 0);
       games[roomId].players[playerId] = createInitialPlayerState(playerId, profile.name || 'Jugador', unlockedIds);
       games[roomId].players['cpu'] = createCpuPlayerState('cpu', 'CPU (Bot)', profile);
@@ -219,7 +225,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       }
     });
 
-    socket.on('joinRoom', (roomId, playerId) => {
+    socket.on('joinRoom', async (roomId, playerId) => {
       const game = games[roomId];
       if (!game) {
         socket.emit('error', 'La sala no existe.');
@@ -236,7 +242,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       playerIdToRoom[playerId] = roomId;
       
       if (!game.players[playerId]) {
-        const profile = getUserProfile(playerId);
+        const profile = await getUserProfile(playerId);
         const unlockedIds = Object.keys(profile.cardInventory).filter(cardId => profile.cardInventory[cardId] > 0);
         game.players[playerId] = createInitialPlayerState(playerId, 'Jugador 2', unlockedIds);
         game.logs.push(`Jugador unido a la sala ${roomId}.`);
@@ -245,13 +251,13 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       io.to(roomId).emit('gameUpdate', game);
     });
 
-    socket.on('reconnect', (roomId, playerId) => {
+    socket.on('reconnect', async (roomId, playerId) => {
       const game = games[roomId];
       if (game && game.players[playerId]) {
         socket.join(roomId);
         socketToPlayerId[socket.id] = playerId;
         playerIdToRoom[playerId] = roomId;
-        const profile = getUserProfile(playerId);
+        const profile = await getUserProfile(playerId);
         socket.emit('profileUpdate', profile);
         io.to(roomId).emit('gameUpdate', game);
       }
