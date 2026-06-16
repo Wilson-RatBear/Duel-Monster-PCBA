@@ -10,12 +10,13 @@ import {
 import { setupDuelSocket } from './features/duel/duel.socket.js';
 
 const app = express();
-app.use(cors());
+const origin = process.env.VERCEL_FRONTEND_URL || '*';
+app.use(cors({ origin }));
 
 const httpServer = createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: {
-    origin: '*',
+    origin: origin,
     methods: ['GET', 'POST']
   }
 });
