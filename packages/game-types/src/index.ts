@@ -86,6 +86,22 @@ export interface SavedDeck {
   cards: string[];
 }
 
+export interface TeacherNote {
+  id: string;
+  studentId: string;
+  studentName: string;
+  teacherId: string;
+  teacherName: string;
+  content: string;
+  date: string; // ISO string
+}
+
+export interface VisitedStudentLog {
+  studentId: string;
+  studentName: string;
+  date: string; // ISO string
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -95,6 +111,12 @@ export interface UserProfile {
   pvpMatches?: number;
   matchHistory?: MatchHistoryEntry[];
   savedDecks?: SavedDeck[];
+  // Roles expansion
+  role?: 'student' | 'teacher' | 'admin';
+  blocked?: boolean;
+  visitedStudents?: VisitedStudentLog[];
+  notesLeft?: TeacherNote[];
+  teacherNotes?: TeacherNote[];
 }
 
 export interface ServerToClientEvents {
@@ -106,6 +128,8 @@ export interface ServerToClientEvents {
   authSuccess: (profile: UserProfile) => void;
   authError: (message: string) => void;
   cardUnlocked: (cardName: string) => void;
+  adminDashboardData: (data: { users: UserProfile[] }) => void;
+  teacherStudentSearchResult: (studentProfile: UserProfile | null) => void;
 }
 
 export interface ClientToServerEvents {
@@ -129,6 +153,13 @@ export interface ClientToServerEvents {
   executeAttacks: () => void;
   login: (username: string, password: string) => void;
   register: (username: string, password: string, displayName: string) => void;
+  adminGetDashboardData: () => void;
+  adminCreateTeacher: (username: string, password: string, displayName: string) => void;
+  adminDeleteUser: (userId: string) => void;
+  adminToggleBlockUser: (userId: string) => void;
+  adminModifyUserCards: (userId: string, cardId: string, amount: number) => void;
+  teacherSearchStudent: (studentId: string) => void;
+  teacherAddNote: (studentId: string, content: string) => void;
 }
 
 export const MONSTERS: MonsterCard[] = [

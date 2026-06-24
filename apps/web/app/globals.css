@@ -4,3 +4,256 @@
   0% { background-position: 0% 0%; }
   100% { background-position: 0% 100px; }
 }
+
+@keyframes flash {
+  0%, 100% { opacity: 0; }
+  5%, 25% { opacity: 0.8; }
+  10%, 20% { opacity: 0.3; }
+  15% { opacity: 1; }
+}
+
+@keyframes strike {
+  0% { stroke-dashoffset: 1000; opacity: 0; }
+  10% { stroke-dashoffset: 0; opacity: 1; }
+  40% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Circuit pattern style */
+.circuit-bg {
+  background-color: #0b0f19;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(30, 27, 75, 0.95) 0%, rgba(2, 6, 23, 1) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cpath d='M 0 20 L 30 20 L 40 30 L 80 30 L 90 20 L 120 20 M 20 0 L 20 40 L 30 50 L 30 80 L 20 90 L 20 120 M 100 0 L 100 40 L 90 50 L 90 80 L 100 90 L 100 120 M 40 60 L 80 60 M 60 40 L 60 80' fill='none' stroke='rgba(99, 102, 241, 0.12)' stroke-width='1.5'/%3E%3Ccircle cx='30' cy='20' r='3' fill='none' stroke='rgba(99, 102, 241, 0.2)' stroke-width='1.5'/%3E%3Ccircle cx='90' cy='20' r='3' fill='none' stroke='rgba(99, 102, 241, 0.2)' stroke-width='1.5'/%3E%3Ccircle cx='30' cy='50' r='3' fill='none' stroke='rgba(99, 102, 241, 0.2)' stroke-width='1.5'/%3E%3Ccircle cx='90' cy='50' r='3' fill='none' stroke='rgba(99, 102, 241, 0.2)' stroke-width='1.5'/%3E%3Ccircle cx='60' cy='40' r='2' fill='rgba(99, 102, 241, 0.35)'/%3E%3Ccircle cx='60' cy='80' r='2' fill='rgba(99, 102, 241, 0.35)'/%3E%3Ccircle cx='30' cy='80' r='2' fill='rgba(99, 102, 241, 0.35)'/%3E%3C/svg%3E");
+  background-size: 120px 120px;
+}
+
+/* Light Mode Overrides */
+.light {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.light .circuit-bg {
+  background-color: #f1f5f9 !important;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(224, 231, 255, 0.8) 0%, rgba(248, 250, 252, 1) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cpath d='M 0 20 L 30 20 L 40 30 L 80 30 L 90 20 L 120 20 M 20 0 L 20 40 L 30 50 L 30 80 L 20 90 L 20 120 M 100 0 L 100 40 L 90 50 L 90 80 L 100 90 L 100 120 M 40 60 L 80 60 M 60 40 L 60 80' fill='none' stroke='rgba(99, 102, 241, 0.08)' stroke-width='1.5'/%3E%3Ccircle cx='30' cy='20' r='3' fill='none' stroke='rgba(99, 102, 241, 0.15)' stroke-width='1.5'/%3E%3Ccircle cx='90' cy='20' r='3' fill='none' stroke='rgba(99, 102, 241, 0.15)' stroke-width='1.5'/%3E%3Ccircle cx='30' cy='50' r='3' fill='none' stroke='rgba(99, 102, 241, 0.15)' stroke-width='1.5'/%3E%3Ccircle cx='90' cy='50' r='3' fill='none' stroke='rgba(99, 102, 241, 0.15)' stroke-width='1.5'/%3E%3Ccircle cx='60' cy='40' r='2' fill='rgba(99, 102, 241, 0.25)'/%3E%3Ccircle cx='60' cy='80' r='2' fill='rgba(99, 102, 241, 0.25)'/%3E%3Ccircle cx='30' cy='80' r='2' fill='rgba(99, 102, 241, 0.25)'/%3E%3C/svg%3E") !important;
+}
+
+.light .bg-slate-950 {
+  background-color: #f8fafc !important;
+}
+
+.light .bg-slate-900 {
+  background-color: #ffffff !important;
+}
+
+.light .bg-slate-900\/80 {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.light .bg-slate-900\/60 {
+  background-color: rgba(248, 250, 252, 0.75) !important;
+}
+
+.light .bg-slate-900\/40 {
+  background-color: rgba(241, 245, 249, 0.7) !important;
+}
+
+.light .bg-slate-900\/20 {
+  background-color: rgba(241, 245, 249, 0.3) !important;
+}
+
+.light .bg-slate-950\/20 {
+  background-color: rgba(248, 250, 252, 0.3) !important;
+}
+
+.light .bg-slate-950\/40 {
+  background-color: rgba(241, 245, 249, 0.5) !important;
+}
+
+.light .bg-slate-950\/50 {
+  background-color: rgba(241, 245, 249, 0.6) !important;
+}
+
+.light .bg-slate-950\/60 {
+  background-color: rgba(241, 245, 249, 0.7) !important;
+}
+
+.light .bg-slate-950\/80 {
+  background-color: rgba(241, 245, 249, 0.85) !important;
+}
+
+.light .bg-slate-800 {
+  background-color: #f1f5f9 !important;
+}
+
+.light .bg-slate-800\/50 {
+  background-color: rgba(241, 245, 249, 0.5) !important;
+}
+
+.light .bg-slate-700 {
+  background-color: #e2e8f0 !important;
+}
+
+.light .bg-slate-600 {
+  background-color: #cbd5e1 !important;
+}
+
+.light .bg-slate-950\/50 {
+  background-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.light .bg-indigo-950\/20 {
+  background-color: rgba(224, 231, 255, 0.35) !important;
+}
+
+.light .bg-purple-950\/10 {
+  background-color: rgba(243, 232, 255, 0.25) !important;
+}
+
+.light .bg-purple-950\/20 {
+  background-color: rgba(243, 232, 255, 0.4) !important;
+}
+
+.light .bg-blue-950\/20 {
+  background-color: rgba(239, 246, 255, 0.4) !important;
+}
+
+.light .bg-blue-950\/40 {
+  background-color: rgba(239, 246, 255, 0.6) !important;
+}
+
+.light .bg-purple-900\/10 {
+  background-color: rgba(243, 232, 255, 0.3) !important;
+}
+
+.light .bg-blue-900\/20 {
+  background-color: rgba(239, 246, 255, 0.35) !important;
+}
+
+/* Text overrides in Light Mode */
+.light .text-white {
+  color: #0f172a !important;
+}
+
+.light .text-slate-100 {
+  color: #1e293b !important;
+}
+
+.light .text-slate-200 {
+  color: #334155 !important;
+}
+
+.light .text-slate-300 {
+  color: #475569 !important;
+}
+
+.light .text-slate-400 {
+  color: #475569 !important;
+}
+
+.light .text-slate-500 {
+  color: #64748b !important;
+}
+
+.light .text-slate-600 {
+  color: #475569 !important;
+}
+
+.light .text-slate-700 {
+  color: #334155 !important;
+}
+
+.light .text-indigo-300 {
+  color: #4f46e5 !important;
+}
+
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6, 
+.light .font-black {
+  color: #0f172a !important;
+}
+
+.light .text-transparent {
+  color: inherit !important;
+  background-clip: unset !important;
+  -webkit-background-clip: unset !important;
+  -webkit-text-fill-color: unset !important;
+  background-image: none !important;
+}
+
+.light label {
+  color: #475569 !important;
+}
+
+/* Border overrides in Light Mode */
+.light .border-slate-900\/80 {
+  border-color: rgba(226, 232, 240, 0.8) !important;
+}
+
+.light .border-slate-800\/60 {
+  border-color: rgba(203, 213, 225, 0.6) !important;
+}
+
+.light .border-slate-800\/80 {
+  border-color: rgba(203, 213, 225, 0.8) !important;
+}
+
+.light .border-slate-800 {
+  border-color: #cbd5e1 !important;
+}
+
+.light .border-slate-700 {
+  border-color: #cbd5e1 !important;
+}
+
+.light .border-slate-700\/50 {
+  border-color: rgba(203, 213, 225, 0.5) !important;
+}
+
+.light .border-indigo-900\/20 {
+  border-color: rgba(99, 102, 241, 0.25) !important;
+}
+
+.light .border-purple-900\/30 {
+  border-color: rgba(168, 85, 247, 0.25) !important;
+}
+
+.light .border-blue-900\/40 {
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.light .border-blue-900\/50 {
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+/* Input & elements styles in Light Mode */
+.light input, .light textarea, .light select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+.light input::placeholder, .light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.light select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Glassmorphism adjustments */
+.light .backdrop-blur-sm, .light .backdrop-blur-md, .light .backdrop-blur-2xl {
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  background-color: rgba(255, 255, 255, 0.75) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Keep card colors bright but text legible */
+.light .bg-slate-900\/90 {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}

@@ -322,6 +322,20 @@ export default function GamePage() {
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [deckNameInput, setDeckNameInput] = useState('');
   const [confirmDeckToLoad, setConfirmDeckToLoad] = useState<any | null>(null);
+
+  // Docente and Admin states
+  const [adminUsersList, setAdminUsersList] = useState<UserProfile[]>([]);
+  const [teacherStudentProfile, setTeacherStudentProfile] = useState<UserProfile | null>(null);
+  const [teacherSearchError, setTeacherSearchError] = useState<string | null>(null);
+  const [teacherSearchInput, setTeacherSearchInput] = useState('');
+  const [teacherNoteInput, setTeacherNoteInput] = useState('');
+  const [adminTab, setAdminTab] = useState<'USERS' | 'STUDENTS' | 'TEACHERS'>('USERS');
+  const [adminSelectedStudent, setAdminSelectedStudent] = useState<UserProfile | null>(null);
+  const [adminStudentSearchInput, setAdminStudentSearchInput] = useState('');
+  const [adminCreateTeacherUsername, setAdminCreateTeacherUsername] = useState('');
+  const [adminCreateTeacherPassword, setAdminCreateTeacherPassword] = useState('');
+  const [adminCreateTeacherName, setAdminCreateTeacherName] = useState('');
+  const [adminCardEditorUser, setAdminCardEditorUser] = useState<UserProfile | null>(null);
   const [showGameOver, setShowGameOver] = useState(false);
 
   // Authentication State
@@ -333,6 +347,22 @@ export default function GamePage() {
 
   // Unlocked Card Alert State
   const [unlockedCardAlert, setUnlockedCardAlert] = useState<string | null>(null);
+
+  // Theme and animations state
+  const [isLightMode, setIsLightMode] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('theme_mode');
+    if (stored === 'light') {
+      setIsLightMode(true);
+    }
+  }, []);
+
+  const toggleThemeMode = () => {
+    const newMode = !isLightMode;
+    setIsLightMode(newMode);
+    localStorage.setItem('theme_mode', newMode ? 'light' : 'dark');
+  };
 
   useEffect(() => {
     if (gameState?.phase === 'GAME_OVER') {
@@ -375,6 +405,15 @@ export default function GamePage() {
       setUserProfile(profile);
     });
 
+    newSocket.on('adminDashboardData', (data) => {
+      setAdminUsersList(data.users);
+    });
+
+    newSocket.on('teacherStudentSearchResult', (profile) => {
+      setTeacherStudentProfile(profile);
+      setTeacherSearchError(profile ? null : 'Alumno no encontrado.');
+    });
+
     newSocket.on('cardUnlocked', (cardId) => {
       setUnlockedCardAlert(cardId);
     });
@@ -408,6 +447,12 @@ export default function GamePage() {
       newSocket.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    if (userProfile?.role === 'admin') {
+      socket?.emit('adminGetDashboardData');
+    }
+  }, [userProfile, socket]);
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -598,11 +643,795 @@ export default function GamePage() {
     socket?.emit('selectDeck', selectedCards);
   };
 
+  const renderTeacherDashboard = () => {
+    const [teacherTab, setTeacherTab] = useState<'CARDS' | 'DECK' | 'HISTORY' | 'NOTES'>('CARDS');
+    
+    const handleSearch = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (teacherSearchInput.trim()) {
+        socket?.emit('teacherSearchStudent', teacherSearchInput.trim());
+      }
+    };
+    
+    const handleSaveNote = () => {
+      if (teacherNoteInput.trim() && teacherStudentProfile) {
+        socket?.emit('teacherAddNote', teacherStudentProfile.id, teacherNoteInput.trim());
+        setTeacherNoteInput('');
+      }
+    };
+    
+    return (
+      <div className={`flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans relative overflow-x-hidden ${isLightMode ? 'light' : ''}`}>
+        {/* Starry bg */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(20,25,60,0.6)_0%,_rgba(2,5,15,1)_85%)] z-0" />
+        
+        {/* Header */}
+        <header className="relative z-10 max-w-7xl w-full mx-auto px-6 py-6 flex justify-between items-center border-b border-slate-900/80">
+          <div className="flex items-center space-x-2">
+            <img src="/symbols/concepto.png" className="w-6 h-6 object-contain" alt="" />
+            <span className="font-mono text-sm tracking-[0.3em] font-black uppercase text-slate-300">DOCENTE - DUEL MONSTERS</span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <button onClick={toggleThemeMode} className="p-2 border border-slate-800/40 hover:bg-slate-800/30 rounded-full text-sm cursor-pointer transition-all flex items-center justify-center">
+              {isLightMode ? '🌙' : '☀️'}
+            </button>
+            <span className="text-xs font-mono text-slate-400">Sesión: {userProfile?.name}</span>
+            <button onClick={() => setShowLogoutConfirm(true)} className="px-4 py-2 border border-red-900/50 hover:bg-red-950/30 text-red-400 rounded-full text-xs font-black uppercase tracking-wider transition-all cursor-pointer">
+              Cerrar Sesión
+            </button>
+          </div>
+        </header>
+
+        {/* Dashboard Main Area */}
+        <main className="relative z-10 flex-grow max-w-7xl w-full mx-auto px-6 py-12 flex flex-col lg:flex-row gap-8 overflow-hidden h-[calc(100vh-100px)]">
+          {/* Left panel: Search & Logs */}
+          <div className="w-full lg:w-[350px] flex-shrink-0 flex flex-col gap-6">
+            {/* Search Card */}
+            <div className="bg-slate-900/40 border border-slate-800/80 backdrop-blur-2xl p-6 rounded-3xl shadow-xl">
+              <h3 className="text-lg font-black uppercase tracking-wider text-purple-400 mb-4">🔍 Búsqueda de Alumno</h3>
+              <form onSubmit={handleSearch} className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="ID del Alumno (ej: yugi_muto)"
+                  value={teacherSearchInput}
+                  onChange={(e) => setTeacherSearchInput(e.target.value)}
+                  className="w-full bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm placeholder-slate-700 text-white px-4"
+                />
+                <button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-bold text-xs uppercase tracking-wider shadow-[0_0_15px_rgba(168,85,247,0.2)] transition-all cursor-pointer">
+                  Buscar Perfil
+                </button>
+              </form>
+              {teacherSearchError && (
+                <div className="mt-4 bg-red-950/40 border border-red-900/50 text-red-400 p-3 rounded-xl text-center text-xs font-mono animate-pulse">
+                  ⚠️ {teacherSearchError}
+                </div>
+              )}
+            </div>
+
+            {/* Visit Logs */}
+            <div className="bg-slate-900/40 border border-slate-800/80 backdrop-blur-2xl p-6 rounded-3xl shadow-xl flex-grow overflow-hidden flex flex-col">
+              <h3 className="text-sm font-mono font-bold tracking-widest text-slate-400 uppercase mb-4">Alumnos Visitados</h3>
+              <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-2">
+                {userProfile?.visitedStudents && userProfile.visitedStudents.length > 0 ? (
+                  userProfile.visitedStudents.map((log: any, idx: number) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => socket?.emit('teacherSearchStudent', log.studentId)}
+                      className="p-3 bg-slate-950/40 border border-slate-900 hover:bg-purple-950/10 hover:border-purple-500/30 transition-all rounded-xl cursor-pointer text-left"
+                    >
+                      <h4 className="text-xs font-bold text-slate-200">{log.studentName}</h4>
+                      <p className="text-[9px] text-slate-500 font-mono mt-0.5">{log.studentId} • {new Date(log.date).toLocaleDateString()}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-600 italic">No has visitado alumnos en esta sesión.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel: Student Profile Details */}
+          <div className="flex-grow bg-slate-900/20 border border-slate-800/60 backdrop-blur-2xl p-8 rounded-3xl shadow-xl overflow-hidden flex flex-col min-h-[500px]">
+            {teacherStudentProfile ? (
+              <div className="flex flex-col h-full overflow-hidden">
+                {/* Header profile details */}
+                <div className="flex justify-between items-start border-b border-slate-800/50 pb-6 mb-6">
+                  <div>
+                    <h2 className="text-3xl font-black text-white">{teacherStudentProfile.name}</h2>
+                    <p className="text-xs text-slate-500 font-mono mt-1">ID Alumno: {teacherStudentProfile.id}</p>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="bg-slate-950/40 px-4 py-2 border border-slate-800/50 rounded-xl text-center">
+                      <span className="block text-lg font-bold text-amber-400">{teacherStudentProfile.pveWins}</span>
+                      <span className="text-[8px] text-slate-500 font-mono uppercase tracking-wider">Victorias PVE</span>
+                    </div>
+                    <div className="bg-slate-950/40 px-4 py-2 border border-slate-800/50 rounded-xl text-center">
+                      <span className="block text-lg font-bold text-blue-400">{teacherStudentProfile.pveMatches || 0}</span>
+                      <span className="text-[8px] text-slate-500 font-mono uppercase tracking-wider">Partidas PVE</span>
+                    </div>
+                    <div className="bg-slate-950/40 px-4 py-2 border border-slate-800/50 rounded-xl text-center">
+                      <span className="block text-lg font-bold text-purple-400">{teacherStudentProfile.pvpMatches || 0}</span>
+                      <span className="text-[8px] text-slate-500 font-mono uppercase tracking-wider">Partidas PVP</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub Tab selection */}
+                <div className="flex space-x-2 mb-6 border-b border-slate-800/30 pb-2">
+                  {(['CARDS', 'DECK', 'HISTORY', 'NOTES'] as const).map((tab) => (
+                    <button 
+                      key={tab} 
+                      onClick={() => setTeacherTab(tab)} 
+                      className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${teacherTab === tab ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+                    >
+                      {tab === 'CARDS' ? 'Inventario de Cartas' : tab === 'DECK' ? 'Mazos Guardados' : tab === 'HISTORY' ? 'Historial de Duelos' : 'Notas Pedagógicas'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Tab content scrollable */}
+                <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
+                  {teacherTab === 'CARDS' && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-6">
+                      {allCards.map(card => {
+                        const hasCard = (teacherStudentProfile.cardInventory?.[card.id] || 0) > 0;
+                        return (
+                          <div key={card.id} className="relative flex flex-col items-center">
+                            {hasCard ? (
+                              <div className="w-28 h-40 relative">
+                                <GameCardContent card={card} onPreview={() => setPreviewCardId(card.id)} />
+                              </div>
+                            ) : (
+                              <div className="w-28 h-40 bg-slate-950 border-2 border-dashed border-slate-900 rounded-xl flex flex-col items-center justify-center p-3 relative overflow-hidden grayscale opacity-40 shadow-inner">
+                                <span className="text-3xl mb-2">🔒</span>
+                                <span className="text-[8px] text-slate-600 font-bold tracking-widest text-center uppercase">Bloqueada</span>
+                              </div>
+                            )}
+                            <div className="mt-2 text-center">
+                              <span className={`text-[9px] px-2 py-0.5 rounded font-bold tracking-widest border ${hasCard ? (card.type === 'MONSTER' ? 'bg-amber-950/80 text-amber-400 border-amber-900/50' : 'bg-emerald-950/80 text-emerald-400 border-emerald-900/50') : 'bg-slate-950 text-slate-700 border-slate-900'}`}>
+                                {hasCard ? `x${teacherStudentProfile.cardInventory?.[card.id] || 0}` : 'MISTERIO'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {teacherTab === 'DECK' && (
+                    <div className="space-y-6 pb-6 text-left">
+                      {teacherStudentProfile.savedDecks && teacherStudentProfile.savedDecks.length > 0 ? (
+                        teacherStudentProfile.savedDecks.map((deck: any, idx: number) => (
+                          <div key={idx} className="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl">
+                            <h4 className="text-md font-bold text-purple-300 uppercase tracking-wide">{deck.name}</h4>
+                            <p className="text-xs text-slate-500 font-mono mt-1">{deck.cards.length} cartas en total</p>
+                            <div className="flex flex-wrap gap-2 mt-4">
+                              {deck.cards.map((cardId: string, cIdx: number) => {
+                                const card = allCards.find(c => c.id === cardId);
+                                if (!card) return null;
+                                return (
+                                  <span key={cIdx} className={`px-2.5 py-1 bg-slate-900 border text-xs font-medium rounded-lg ${card.type === 'MONSTER' ? 'text-amber-400 border-amber-900/30' : 'text-emerald-400 border-emerald-900/30'}`}>
+                                    {card.name} ({card.type})
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-slate-500 italic text-center py-10">Este alumno no ha guardado mazos.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {teacherTab === 'HISTORY' && (
+                    <div className="space-y-3 pb-6 text-left">
+                      {teacherStudentProfile.matchHistory && teacherStudentProfile.matchHistory.length > 0 ? (
+                        teacherStudentProfile.matchHistory.map((match: any) => {
+                          const isWin = match.result === 'win';
+                          return (
+                            <div key={match.id} className={`p-4 rounded-xl border flex items-center justify-between ${isWin ? 'bg-emerald-950/10 border-emerald-900/20' : 'bg-red-950/10 border-red-900/20'}`}>
+                              <div className="flex items-center space-x-4">
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs ${isWin ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40' : 'bg-red-950/60 text-red-400 border-red-800/40'}`}>
+                                  {isWin ? 'VIC' : 'DEF'}
+                                </div>
+                                <div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm font-bold text-white">vs {match.opponentName}</span>
+                                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-bold uppercase ${match.mode === 'adventure' ? 'bg-amber-950/60 text-amber-400 border-amber-900/30' : 'bg-blue-950/60 text-blue-400 border-blue-900/30'}`}>
+                                      {match.mode === 'adventure' ? 'Aventura' : 'Multijugador'}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-500 font-mono mt-1">{new Date(match.date).toLocaleString()}</p>
+                                </div>
+                              </div>
+                              <div className="text-right font-mono text-sm text-slate-300">
+                                {match.myHp} LP vs {match.opponentHp} LP
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-xs text-slate-500 italic text-center py-10">No hay duelos registrados para este alumno.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {teacherTab === 'NOTES' && (
+                    <div className="space-y-6 pb-6 text-left">
+                      {/* Editor Note */}
+                      <div className="bg-slate-950/40 border border-slate-800/80 p-5 rounded-2xl space-y-4">
+                        <h4 className="text-xs font-mono font-bold tracking-widest text-slate-400 uppercase">Agregar Nota Pedagógica</h4>
+                        <textarea
+                          placeholder="Escribe comentarios, observaciones académicas o notas sobre el progreso del alumno..."
+                          value={teacherNoteInput}
+                          onChange={(e) => setTeacherNoteInput(e.target.value)}
+                          maxLength={300}
+                          className="w-full h-24 bg-slate-950 border border-slate-800 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm text-white placeholder-slate-700 resize-none"
+                        />
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-slate-600 font-mono">{300 - teacherNoteInput.length} caracteres disponibles</span>
+                          <button onClick={handleSaveNote} disabled={!teacherNoteInput.trim()} className="bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer">
+                            Guardar Nota
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Notes list */}
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-mono font-bold tracking-widest text-slate-400 uppercase">Historial de Anotaciones</h4>
+                        {teacherStudentProfile.teacherNotes && teacherStudentProfile.teacherNotes.length > 0 ? (
+                          teacherStudentProfile.teacherNotes.map((note: any) => (
+                            <div key={note.id} className="p-4 bg-slate-950/60 border border-slate-900 rounded-xl space-y-2 relative">
+                              <div className="flex justify-between items-start">
+                                <span className="text-xs font-bold text-purple-300">Docente: {note.teacherName}</span>
+                                <span className="text-[9px] text-slate-500 font-mono">{new Date(note.date).toLocaleString()}</span>
+                              </div>
+                              <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-slate-600 italic">No hay notas registradas para este alumno.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex-grow flex flex-col items-center justify-center text-slate-600 opacity-70 border border-dashed border-slate-800 rounded-2xl py-20 text-center">
+                <span className="text-6xl mb-4">👤</span>
+                <h4 className="font-mono text-sm uppercase tracking-widest">Ningún Alumno Seleccionado</h4>
+                <p className="text-xs text-slate-500 mt-2 max-w-sm">Busca un ID de alumno o selecciona uno visitado recientemente en el panel izquierdo para examinar su rendimiento.</p>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+    );
+  };
+
+  const renderAdminDashboard = () => {
+    const handleRegisterTeacher = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (adminCreateTeacherUsername.trim() && adminCreateTeacherPassword.trim() && adminCreateTeacherName.trim()) {
+        socket?.emit('adminCreateTeacher', adminCreateTeacherUsername.trim(), adminCreateTeacherPassword.trim(), adminCreateTeacherName.trim());
+        setAdminCreateTeacherUsername('');
+        setAdminCreateTeacherPassword('');
+        setAdminCreateTeacherName('');
+      }
+    };
+    
+    const [userFilter, setUserFilter] = useState<'ALL' | 'STUDENT' | 'TEACHER'>('ALL');
+    const [userSearch, setUserSearch] = useState('');
+    
+    const filteredUsers = adminUsersList.filter(user => {
+      if (userFilter !== 'ALL' && user.role !== userFilter.toLowerCase()) return false;
+      if (userSearch.trim()) {
+        const query = userSearch.toLowerCase();
+        return user.id.toLowerCase().includes(query) || user.name.toLowerCase().includes(query);
+      }
+      return true;
+    });
+
+    const studentsList = adminUsersList.filter(u => u.role === 'student');
+    const teachersList = adminUsersList.filter(u => u.role === 'teacher');
+    
+    const studentSearchResult = adminSelectedStudent ? adminUsersList.find(u => u.id === adminSelectedStudent.id) : null;
+    
+    const [selectedTeacherActivityId, setSelectedTeacherActivityId] = useState<string | null>(null);
+    const selectedTeacherProfile = teachersList.find(t => t.id === selectedTeacherActivityId);
+
+    return (
+      <div className={`flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans relative overflow-x-hidden ${isLightMode ? 'light' : ''}`}>
+        {/* Starry bg */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(20,25,60,0.6)_0%,_rgba(2,5,15,1)_85%)] z-0" />
+        
+        {/* Header */}
+        <header className="relative z-10 max-w-7xl w-full mx-auto px-6 py-6 flex justify-between items-center border-b border-slate-900/80">
+          <div className="flex items-center space-x-2">
+            <img src="/symbols/concepto.png" className="w-6 h-6 object-contain" alt="" />
+            <span className="font-mono text-sm tracking-[0.3em] font-black uppercase text-slate-300">ADMINISTRADOR - DUEL MONSTERS</span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <button onClick={toggleThemeMode} className="p-2 border border-slate-800/40 hover:bg-slate-800/30 rounded-full text-sm cursor-pointer transition-all flex items-center justify-center">
+              {isLightMode ? '🌙' : '☀️'}
+            </button>
+            <span className="text-xs font-mono text-slate-400">Sesión: {userProfile?.name}</span>
+            <button onClick={() => setShowLogoutConfirm(true)} className="px-4 py-2 border border-red-900/50 hover:bg-red-950/30 text-red-400 rounded-full text-xs font-black uppercase tracking-wider transition-all cursor-pointer">
+              Cerrar Sesión
+            </button>
+          </div>
+        </header>
+
+        {/* Navigation Tabs */}
+        <div className="relative z-10 max-w-7xl w-full mx-auto px-6 mt-6">
+          <div className="flex space-x-4 bg-slate-900/60 p-1.5 rounded-xl border border-slate-800/80 backdrop-blur-md w-fit">
+            {(['USERS', 'STUDENTS', 'TEACHERS'] as const).map(tab => (
+              <button 
+                key={tab} 
+                onClick={() => setAdminTab(tab)} 
+                className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all cursor-pointer ${adminTab === tab ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+              >
+                {tab === 'USERS' ? 'Gestión de Usuarios' : tab === 'STUDENTS' ? 'Búsqueda de Alumnos' : 'Actividad de Docentes'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Dashboard Main Area */}
+        <main className="relative z-10 flex-grow max-w-7xl w-full mx-auto px-6 py-8 flex flex-col overflow-hidden h-[calc(100vh-170px)]">
+          
+          {/* TAB 1: USER MANAGEMENT */}
+          {adminTab === 'USERS' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full items-start">
+              
+              {/* Form to create Teacher */}
+              <div className="bg-slate-900/40 border border-slate-800/80 backdrop-blur-2xl p-6 rounded-3xl shadow-xl text-left">
+                <h3 className="text-lg font-black uppercase tracking-wider text-blue-400 mb-4 flex items-center gap-2">
+                  <span>🎓</span> Crear Cuenta de Docente
+                </h3>
+                <form onSubmit={handleRegisterTeacher} className="space-y-4">
+                  <div>
+                    <label className="block text-[9px] font-mono tracking-widest uppercase text-slate-500 mb-1 px-1">Usuario</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="ej: profesor_muto"
+                      value={adminCreateTeacherUsername}
+                      onChange={(e) => setAdminCreateTeacherUsername(e.target.value)}
+                      className="w-full bg-slate-950/60 border border-slate-800/80 p-2.5 rounded-xl text-xs placeholder-slate-700 text-white px-3 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-mono tracking-widest uppercase text-slate-500 mb-1 px-1">Contraseña</label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={adminCreateTeacherPassword}
+                      onChange={(e) => setAdminCreateTeacherPassword(e.target.value)}
+                      className="w-full bg-slate-950/60 border border-slate-800/80 p-2.5 rounded-xl text-xs placeholder-slate-700 text-white px-3 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-mono tracking-widest uppercase text-slate-500 mb-1 px-1">Nombre Completo</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="ej: Profesor Muto"
+                      value={adminCreateTeacherName}
+                      onChange={(e) => setAdminCreateTeacherName(e.target.value)}
+                      className="w-full bg-slate-950/60 border border-slate-800/80 p-2.5 rounded-xl text-xs placeholder-slate-700 text-white px-3 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-xs uppercase tracking-wider shadow-[0_0_15px_rgba(37,99,235,0.2)] transition-all cursor-pointer">
+                    Crear Docente
+                  </button>
+                </form>
+              </div>
+
+              {/* Users table list */}
+              <div className="lg:col-span-2 bg-slate-900/20 border border-slate-800/60 backdrop-blur-2xl p-6 rounded-3xl shadow-xl flex flex-col h-full overflow-hidden min-h-[500px]">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                  <h3 className="text-md font-bold uppercase tracking-wider text-slate-300">Cuentas Registradas ({adminUsersList.length})</h3>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <input
+                      type="text"
+                      placeholder="Buscar por ID/Nombre..."
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 text-xs px-3 py-2 rounded-lg placeholder-slate-700 w-full sm:w-48 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <select
+                      value={userFilter}
+                      onChange={(e: any) => setUserFilter(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 text-xs px-3 py-2 rounded-lg text-slate-300 focus:outline-none cursor-pointer"
+                    >
+                      <option value="ALL">Todos</option>
+                      <option value="STUDENT">Alumnos</option>
+                      <option value="TEACHER">Docentes</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-[10px] font-mono tracking-widest text-slate-500 uppercase">
+                        <th className="pb-3 pl-3">Usuario/ID</th>
+                        <th className="pb-3">Nombre</th>
+                        <th className="pb-3">Rol</th>
+                        <th className="pb-3">Estado</th>
+                        <th className="pb-3 pr-3 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900 text-xs">
+                      {filteredUsers.map((user) => (
+                        <tr key={user.id} className="hover:bg-slate-900/20 transition-all">
+                          <td className="py-3.5 pl-3 font-mono font-bold text-white">{user.id}</td>
+                          <td className="py-3.5 text-slate-300">{user.name}</td>
+                          <td className="py-3.5">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-mono uppercase font-black border ${user.role === 'admin' ? 'bg-red-950/60 text-red-400 border-red-900/30' : user.role === 'teacher' ? 'bg-purple-950/60 text-purple-400 border-purple-900/30' : 'bg-blue-950/60 text-blue-400 border-blue-900/30'}`}>
+                              {user.role}
+                            </span>
+                          </td>
+                          <td className="py-3.5">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${user.blocked ? 'bg-red-900/30 text-red-400 border border-red-900/50' : 'bg-emerald-900/30 text-emerald-400 border border-emerald-900/50'}`}>
+                              {user.blocked ? 'Bloqueado' : 'Activo'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 pr-3 text-right space-x-1.5">
+                            {user.role === 'student' && (
+                              <button 
+                                onClick={() => setAdminCardEditorUser(user)}
+                                className="bg-amber-600/20 hover:bg-amber-600 border border-amber-500/50 text-amber-300 hover:text-white px-2.5 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer"
+                              >
+                                Cartas
+                              </button>
+                            )}
+                            {user.id !== 'admin' && (
+                              <>
+                                <button 
+                                  onClick={() => socket?.emit('adminToggleBlockUser', user.id)}
+                                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer ${user.blocked ? 'bg-emerald-600/20 hover:bg-emerald-600 border-emerald-500/50 text-emerald-300 hover:text-white' : 'bg-red-600/20 hover:bg-red-600 border-red-500/50 text-red-300 hover:text-white'}`}
+                                >
+                                  {user.blocked ? 'Desbloquear' : 'Bloquear'}
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    if (confirm(`¿Seguro que quieres eliminar la cuenta de ${user.name} (@${user.id})?`)) {
+                                      socket?.emit('adminDeleteUser', user.id);
+                                    }
+                                  }}
+                                  className="bg-red-900/40 hover:bg-red-600 border border-red-805 text-red-400 hover:text-white px-2.5 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer"
+                                >
+                                  Eliminar
+                                </button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: STUDENT PROFILE BROWSER */}
+          {adminTab === 'STUDENTS' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full items-start">
+              
+              {/* Left Column: Student selection */}
+              <div className="bg-slate-900/40 border border-slate-800/80 backdrop-blur-2xl p-6 rounded-3xl shadow-xl flex flex-col max-h-[500px] overflow-hidden text-left">
+                <h3 className="text-lg font-black uppercase tracking-wider text-blue-400 mb-4">🔍 Búsqueda de Alumno</h3>
+                <input
+                  type="text"
+                  placeholder="Buscar por ID de alumno..."
+                  value={adminStudentSearchInput}
+                  onChange={(e) => setAdminStudentSearchInput(e.target.value)}
+                  className="w-full bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl text-sm placeholder-slate-700 text-white px-4 focus:outline-none focus:ring-1 focus:ring-blue-500 mb-4"
+                />
+                
+                <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-1.5">
+                  {studentsList
+                    .filter(s => s.id.toLowerCase().includes(adminStudentSearchInput.toLowerCase()) || s.name.toLowerCase().includes(adminStudentSearchInput.toLowerCase()))
+                    .map((student) => (
+                      <div 
+                        key={student.id} 
+                        onClick={() => setAdminSelectedStudent(student)}
+                        className={`p-3 border rounded-xl cursor-pointer transition-all hover:bg-blue-950/10 ${adminSelectedStudent?.id === student.id ? 'bg-blue-950/20 border-blue-500/40' : 'bg-slate-950/30 border-slate-900'}`}
+                      >
+                        <h4 className="text-xs font-bold text-white">{student.name}</h4>
+                        <p className="text-[9px] text-slate-500 font-mono mt-0.5">ID: {student.id}</p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Right Panel: Student Profile Details */}
+              <div className="lg:col-span-2 bg-slate-900/20 border border-slate-800/60 backdrop-blur-2xl p-8 rounded-3xl shadow-xl overflow-hidden flex flex-col min-h-[500px] h-full">
+                {studentSearchResult ? (
+                  <div className="flex flex-col h-full overflow-hidden">
+                    <div className="flex justify-between items-start border-b border-slate-800/50 pb-6 mb-6">
+                      <div>
+                        <h2 className="text-3xl font-black text-white">{studentSearchResult.name}</h2>
+                        <p className="text-xs text-slate-500 font-mono mt-1">ID Alumno: {studentSearchResult.id}</p>
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="bg-slate-950/40 px-4 py-2 border border-slate-800/50 rounded-xl text-center">
+                          <span className="block text-lg font-bold text-amber-400">{studentSearchResult.pveWins}</span>
+                          <span className="text-[8px] text-slate-500 font-mono uppercase tracking-wider">Victorias PVE</span>
+                        </div>
+                        <div className="bg-slate-950/40 px-4 py-2 border border-slate-800/50 rounded-xl text-center">
+                          <span className="block text-lg font-bold text-blue-400">{studentSearchResult.pveMatches || 0}</span>
+                          <span className="text-[8px] text-slate-500 font-mono uppercase tracking-wider">Partidas PVE</span>
+                        </div>
+                        <div className="bg-slate-950/40 px-4 py-2 border border-slate-800/50 rounded-xl text-center">
+                          <span className="block text-lg font-bold text-purple-400">{studentSearchResult.pvpMatches || 0}</span>
+                          <span className="text-[8px] text-slate-500 font-mono uppercase tracking-wider">Partidas PVP</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-8 text-left pb-6">
+                      {/* Inventory cards */}
+                      <div>
+                        <h4 className="text-sm font-mono font-bold tracking-widest text-slate-400 uppercase mb-4">Cartas en posesión</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                          {allCards.map(card => {
+                            const hasCard = (studentSearchResult.cardInventory?.[card.id] || 0) > 0;
+                            return (
+                              <div key={card.id} className="relative flex flex-col items-center">
+                                {hasCard ? (
+                                  <div className="w-20 h-28 relative">
+                                    <GameCardContent card={card} onPreview={() => setPreviewCardId(card.id)} />
+                                  </div>
+                                ) : (
+                                  <div className="w-20 h-28 bg-slate-950 border border-dashed border-slate-900 rounded-lg flex flex-col items-center justify-center grayscale opacity-30 shadow-inner">
+                                    <span className="text-lg">🔒</span>
+                                  </div>
+                                )}
+                                <div className="mt-1.5 text-center">
+                                  <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold border ${hasCard ? (card.type === 'MONSTER' ? 'bg-amber-950/80 text-amber-400 border-amber-900/50' : 'bg-emerald-950/80 text-emerald-400 border-emerald-900/50') : 'bg-slate-950 text-slate-700 border-slate-900'}`}>
+                                    {hasCard ? `x${studentSearchResult.cardInventory?.[card.id] || 0}` : 'MISTERIO'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Decks */}
+                      <div>
+                        <h4 className="text-sm font-mono font-bold tracking-widest text-slate-400 uppercase mb-4">Mazos Guardados</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {studentSearchResult.savedDecks && studentSearchResult.savedDecks.length > 0 ? (
+                            studentSearchResult.savedDecks.map((deck: any, idx: number) => (
+                              <div key={idx} className="bg-slate-950/50 border border-slate-800 p-4 rounded-xl text-left">
+                                <h5 className="font-bold text-slate-300">{deck.name}</h5>
+                                <p className="text-[10px] text-slate-500 font-mono mt-0.5">{deck.cards.length} cartas</p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-slate-600 italic">No tiene mazos guardados.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* History */}
+                      <div>
+                        <h4 className="text-sm font-mono font-bold tracking-widest text-slate-400 uppercase mb-4">Historial de Partidas</h4>
+                        <div className="space-y-2">
+                          {studentSearchResult.matchHistory && studentSearchResult.matchHistory.length > 0 ? (
+                            studentSearchResult.matchHistory.map((match: any) => {
+                              const isWin = match.result === 'win';
+                              return (
+                                <div key={match.id} className={`p-3 rounded-lg border flex items-center justify-between text-xs ${isWin ? 'bg-emerald-950/10 border-emerald-900/20' : 'bg-red-950/10 border-red-900/20'}`}>
+                                  <div className="flex items-center space-x-3">
+                                    <span className={`font-mono font-bold px-1.5 py-0.5 rounded text-[8px] uppercase ${isWin ? 'bg-emerald-950 text-emerald-400' : 'bg-red-950 text-red-400'}`}>
+                                      {isWin ? 'VIC' : 'DEF'}
+                                    </span>
+                                    <span className="font-bold text-white">vs {match.opponentName}</span>
+                                    <span className="text-[9px] text-slate-505">{match.mode}</span>
+                                  </div>
+                                  <span className="font-mono text-slate-400">{match.myHp} LP vs {match.opponentHp} LP</span>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <p className="text-xs text-slate-600 italic">No hay partidas registradas.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Notes left by teachers */}
+                      <div>
+                        <h4 className="text-sm font-mono font-bold tracking-widest text-slate-400 uppercase mb-4">Notas de Docentes</h4>
+                        <div className="space-y-3">
+                          {studentSearchResult.teacherNotes && studentSearchResult.teacherNotes.length > 0 ? (
+                            studentSearchResult.teacherNotes.map((note: any) => (
+                              <div key={note.id} className="p-4 bg-slate-950/60 border border-slate-900 rounded-xl space-y-1">
+                                <div className="flex justify-between items-start text-[10px] font-mono text-slate-500">
+                                  <span className="font-bold text-purple-400">Docente: {note.teacherName}</span>
+                                  <span>{new Date(note.date).toLocaleString()}</span>
+                                </div>
+                                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-slate-600 italic">No hay notas registradas para este alumno.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-grow flex flex-col items-center justify-center text-slate-600 opacity-70 border border-dashed border-slate-800 rounded-2xl py-20 text-center">
+                    <span className="text-6xl mb-4">👤</span>
+                    <h4 className="font-mono text-sm uppercase tracking-widest">Selecciona un Alumno</h4>
+                    <p className="text-xs text-slate-505 mt-2 max-w-sm">Elige un alumno del panel izquierdo para examinar su rendimiento, inventario de cartas e historial de anotaciones docentes.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: TEACHER ACTIVITY LOGS */}
+          {adminTab === 'TEACHERS' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full items-start">
+              
+              {/* Left Column: Teacher accounts list */}
+              <div className="bg-slate-900/40 border border-slate-800/80 backdrop-blur-2xl p-6 rounded-3xl shadow-xl flex flex-col max-h-[500px] overflow-hidden text-left">
+                <h3 className="text-lg font-black uppercase tracking-wider text-purple-400 mb-4">Docentes Registrados</h3>
+                <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-1.5">
+                  {teachersList.map((teacher) => (
+                    <div 
+                      key={teacher.id} 
+                      onClick={() => setSelectedTeacherActivityId(teacher.id)}
+                      className={`p-3 border rounded-xl cursor-pointer transition-all hover:bg-purple-950/10 ${selectedTeacherActivityId === teacher.id ? 'bg-purple-950/20 border-purple-500/40' : 'bg-slate-950/30 border-slate-900'}`}
+                    >
+                      <h4 className="text-xs font-bold text-white">{teacher.name}</h4>
+                      <p className="text-[9px] text-slate-505 font-mono mt-0.5">ID: {teacher.id}</p>
+                    </div>
+                  ))}
+                  {teachersList.length === 0 && (
+                    <p className="text-xs text-slate-600 italic">No hay docentes registrados en el sistema.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Panel: Teacher logs details */}
+              <div className="lg:col-span-2 bg-slate-900/20 border border-slate-800/60 backdrop-blur-2xl p-8 rounded-3xl shadow-xl overflow-hidden flex flex-col min-h-[500px] h-full">
+                {selectedTeacherProfile ? (
+                  <div className="flex flex-col h-full overflow-hidden text-left">
+                    <div className="border-b border-slate-800 pb-4 mb-6">
+                      <h2 className="text-2xl font-black text-white">Actividad de {selectedTeacherProfile.name}</h2>
+                      <p className="text-xs text-slate-500 font-mono mt-0.5">ID Docente: {selectedTeacherProfile.id}</p>
+                    </div>
+
+                    <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-6">
+                      {/* Visit logs */}
+                      <div>
+                        <h4 className="text-xs font-mono font-bold tracking-widest text-slate-400 uppercase mb-3">Historial de Perfiles Visitados</h4>
+                        <div className="space-y-2">
+                          {selectedTeacherProfile.visitedStudents && selectedTeacherProfile.visitedStudents.length > 0 ? (
+                            selectedTeacherProfile.visitedStudents.map((log: any, idx: number) => (
+                              <div key={idx} className="p-3 bg-slate-950/60 border border-slate-900 rounded-xl flex justify-between items-center text-xs">
+                                <div>
+                                  <span className="font-bold text-white">{log.studentName}</span>
+                                  <span className="text-[10px] text-slate-505 font-mono ml-2">(@{log.studentId})</span>
+                                </div>
+                                <span className="text-[9px] text-slate-505 font-mono">{new Date(log.date).toLocaleString()}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-slate-600 italic">El docente no ha visitado perfiles de estudiantes.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Notes left */}
+                      <div>
+                        <h4 className="text-xs font-mono font-bold tracking-widest text-slate-400 uppercase mb-3">Historial de Notas Redactadas</h4>
+                        <div className="space-y-3">
+                          {selectedTeacherProfile.notesLeft && selectedTeacherProfile.notesLeft.length > 0 ? (
+                            selectedTeacherProfile.notesLeft.map((note: any) => (
+                              <div key={note.id} className="p-4 bg-slate-950/60 border border-slate-900 rounded-xl space-y-2">
+                                <div className="flex justify-between items-start text-[10px] font-mono text-slate-500">
+                                  <span className="font-bold text-blue-400">Alumno: {note.studentName} (@{note.studentId})</span>
+                                  <span>{new Date(note.date).toLocaleString()}</span>
+                                </div>
+                                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-slate-600 italic">El docente no ha redactado notas pedagógicas.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-grow flex flex-col items-center justify-center text-slate-600 opacity-70 border border-dashed border-slate-800 rounded-2xl py-20 text-center">
+                    <span className="text-6xl mb-4">📊</span>
+                    <h4 className="font-mono text-sm uppercase tracking-widest">Actividad de Docente</h4>
+                    <p className="text-xs text-slate-505 mt-2 max-w-sm">Selecciona un docente de la lista para inspeccionar qué alumnos ha estado monitoreando y las notas pedagógicas que ha redactado.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* Card Editor Modal */}
+        <AnimatePresence>
+          {adminCardEditorUser && (
+            <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+              <motion.div initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, y: 20, opacity: 0 }} className="bg-slate-800 border border-slate-700/50 p-6 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+                <div className="flex justify-between items-center border-b border-slate-700 pb-3 mb-4 text-left">
+                  <div>
+                    <h3 className="text-xl font-black text-white uppercase tracking-wider">📦 Editar Inventario</h3>
+                    <p className="text-xs text-slate-400 font-mono mt-0.5">Usuario: {adminCardEditorUser.name} (@{adminCardEditorUser.id})</p>
+                  </div>
+                  <button onClick={() => setAdminCardEditorUser(null)} className="text-slate-400 hover:text-white transition-colors text-lg font-bold">✕</button>
+                </div>
+
+                <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar grid grid-cols-2 sm:grid-cols-3 gap-4 pb-4">
+                  {allCards.map(card => {
+                    const currentCount = adminUsersList.find(u => u.id === adminCardEditorUser.id)?.cardInventory?.[card.id] || 0;
+                    return (
+                      <div key={card.id} className="p-3 bg-slate-950/50 border border-slate-700/40 rounded-2xl flex items-center justify-between text-left">
+                        <div className="flex-grow overflow-hidden pr-2">
+                          <h4 className="text-xs font-bold text-slate-200 truncate">{card.name}</h4>
+                          <p className="text-[8px] font-mono text-slate-500 uppercase mt-0.5">{card.type} • {card.id}</p>
+                          <p className="text-[10px] font-bold text-blue-400 font-mono mt-1">Copias: {currentCount}</p>
+                        </div>
+                        <div className="flex flex-col gap-1 flex-shrink-0">
+                          <button 
+                            onClick={() => socket?.emit('adminModifyUserCards', adminCardEditorUser.id, card.id, 1)}
+                            className="bg-blue-600 hover:bg-blue-500 text-white w-6 h-6 rounded flex items-center justify-center font-bold text-xs cursor-pointer"
+                          >
+                            +
+                          </button>
+                          <button 
+                            onClick={() => {
+                              if (currentCount > 0) {
+                                socket?.emit('adminModifyUserCards', adminCardEditorUser.id, card.id, -1);
+                              }
+                            }}
+                            disabled={currentCount === 0}
+                            className="bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-white w-6 h-6 rounded flex items-center justify-center font-bold text-xs cursor-pointer"
+                          >
+                            -
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="border-t border-slate-700 pt-4 flex justify-end">
+                  <button onClick={() => setAdminCardEditorUser(null)} className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest cursor-pointer">
+                    Cerrar
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
+
   if (!playerId) {
     return (
-      <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans overflow-x-hidden relative">
+      <div className={`flex flex-col min-h-screen circuit-bg text-slate-100 font-sans overflow-x-hidden relative ${isLightMode ? 'light' : ''}`}>
         {/* Deep starry background with radial glow */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(20,25,60,0.6)_0%,_rgba(2,5,15,1)_85%)] z-0" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(20,25,60,0.6)_0%,_rgba(2,5,15,1)_85%)] z-0" style={{ opacity: isLightMode ? 0.05 : 1 }} />
         
         {/* Twinkling stars */}
         <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
@@ -672,6 +1501,9 @@ export default function GamePage() {
             <span className="font-mono text-sm tracking-[0.3em] font-black uppercase text-slate-300">DUEL MONSTERS</span>
           </div>
           <div className="flex items-center space-x-6">
+            <button onClick={toggleThemeMode} className="p-2 border border-slate-800/40 hover:bg-slate-800/30 rounded-full text-sm cursor-pointer transition-all flex items-center justify-center">
+              {isLightMode ? '🌙' : '☀️'}
+            </button>
             <button 
               onClick={() => { setAuthMode('LOGIN'); setAuthErrorMsg(null); }}
               className="text-xs font-mono uppercase tracking-widest text-slate-400 hover:text-white transition-colors cursor-pointer"
@@ -844,8 +1676,15 @@ export default function GamePage() {
   }
 
   if (!gameState) {
+    if (userProfile?.role === 'admin') {
+      return renderAdminDashboard();
+    }
+    if (userProfile?.role === 'teacher') {
+      return renderTeacherDashboard();
+    }
+
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white p-4 md:p-8 overflow-y-auto relative">
+      <div className={`flex flex-col items-center justify-center min-h-screen circuit-bg text-white p-4 md:p-8 overflow-y-auto relative ${isLightMode ? 'light' : ''}`}>
         <div className="absolute inset-0 pointer-events-none opacity-40 bg-[radial-gradient(circle_at_center,_rgba(30,41,59,0.5)_0%,_rgba(2,6,23,1)_100%)] z-0"></div>
         
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
@@ -856,7 +1695,7 @@ export default function GamePage() {
           <motion.div animate={{ y: [0, 30, 0], rotate: [-15, -10, -15] }} transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut', delay: 1 }} className="absolute top-1/4 -right-16 w-72 h-[28rem] bg-amber-900/20 border border-amber-500/20 rounded-2xl blur-[6px] p-6 flex flex-col shadow-2xl">
             <div className="w-full h-1/2 bg-black/30 rounded-xl mb-4"></div><div className="w-full h-4 bg-black/20 rounded mb-2"></div><div className="w-1/2 h-4 bg-black/20 rounded"></div>
           </motion.div>
-
+ 
           <motion.div animate={{ y: [0, -25, 0], rotate: [25, 20, 25] }} transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut', delay: 2 }} className="absolute -bottom-20 left-1/4 w-56 h-80 bg-emerald-900/20 border border-emerald-500/20 rounded-2xl blur-[5px] p-5 flex flex-col shadow-2xl">
             <div className="w-full h-1/2 bg-black/30 rounded-xl mb-4"></div><div className="w-full h-4 bg-black/20 rounded mb-2"></div><div className="w-2/3 h-4 bg-black/20 rounded"></div>
           </motion.div>
@@ -867,7 +1706,7 @@ export default function GamePage() {
             Duel Monsters
           </h1>
           
-          <div className="flex space-x-4 mb-8 bg-slate-900/60 p-2 rounded-xl border border-slate-700/50 backdrop-blur-md">
+          <div className="flex space-x-4 mb-8 bg-slate-900/60 p-2 rounded-xl border border-slate-700/50 backdrop-blur-md items-center">
             <button onClick={() => setMainMenuTab('PLAY')} className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all ${mainMenuTab === 'PLAY' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
               Jugar
             </button>
@@ -879,6 +1718,9 @@ export default function GamePage() {
             </button>
             <button onClick={() => setShowLogoutConfirm(true)} className="px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all text-red-400 hover:text-red-300 hover:bg-red-950/30">
               Cerrar Sesión
+            </button>
+            <button onClick={toggleThemeMode} className="px-4 py-3 rounded-lg font-black uppercase tracking-widest transition-all text-slate-300 hover:text-white hover:bg-slate-800/50 cursor-pointer flex items-center justify-center">
+              {isLightMode ? '🌙' : '☀️'}
             </button>
           </div>
 
@@ -1303,7 +2145,7 @@ export default function GamePage() {
     const currentDeckStyle = areaStyles[dominantArea] || areaStyles['ALL'];
 
     return (
-      <div className={`flex h-screen ${currentTheme?.root || 'bg-slate-950'} text-white font-sans overflow-hidden relative`}>
+      <div className={`flex h-screen ${currentTheme?.root || 'bg-slate-950'} text-white font-sans overflow-hidden relative ${isLightMode ? 'light' : ''}`}>
         <div className={`absolute inset-0 bg-gradient-to-br ${currentDeckStyle.gradient} opacity-40 transition-colors duration-1000`} />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/20 via-slate-900/80 to-black z-0 pointer-events-none" />
         <div className="flex-grow flex p-4 gap-6 backdrop-blur-sm relative z-10 h-full overflow-hidden">
@@ -1574,12 +2416,16 @@ export default function GamePage() {
   const currentThemeStr = gameState.dominantTheme || 'NEUTRAL';
 
   return (
-    <motion.div animate={currentThemeStr} variants={themeContainerVariants as any} className="flex h-screen text-white font-sans overflow-hidden relative bg-black">
+    <motion.div animate={currentThemeStr} variants={themeContainerVariants as any} className={`flex h-screen text-white font-sans overflow-hidden relative bg-black ${isLightMode ? 'light' : ''}`}>
       <div className="absolute inset-0 z-0 pointer-events-none">
         {BOARD_THEMES.NEUTRAL.particles}
       </div>
       <Layer1Background theme={currentThemeStr} />
       <Layer2Grid theme={currentThemeStr} />
+      {currentThemeStr === 'METEOROLOGIA' && <LightningStorm />}
+      {animatingCard?.type === 'ATTACK_IMPACT' && (
+        <AttackAnimationOverlay animatingCard={animatingCard} gameState={gameState} playerId={playerId} />
+      )}
       
       {animatingCard?.type === 'ACID_RAIN' && (
         <div className="fixed inset-0 pointer-events-none z-50">
@@ -1590,7 +2436,7 @@ export default function GamePage() {
 
       <div className="flex-grow flex flex-col relative z-10 h-full w-full overflow-hidden">
         <div className="absolute top-6 left-6 z-20 cursor-pointer" onClick={handleOpponentAvatarClick}>
-          <div className={`bg-slate-900/80 px-6 py-2 rounded-full border transition-all shadow-inner flex items-center space-x-4 border-red-900/50`}>
+          <div id="avatar-opponent" className={`bg-slate-900/80 px-6 py-2 rounded-full border transition-all shadow-inner flex items-center space-x-4 border-red-900/50`}>
             <p className="text-2xl font-mono font-bold text-red-500 tracking-tighter">
               <AnimatedNumber value={opponent?.hp || 0} /> LP
               {animatingCard?.targetId === opponentId && (
@@ -1733,7 +2579,7 @@ export default function GamePage() {
           </div>
 
           <div className="flex flex-col items-end space-y-4 z-20 pointer-events-auto mb-2">
-            <div className="bg-slate-900/80 backdrop-blur-sm px-6 py-2 rounded-full border border-blue-900/50 shadow-inner flex items-center space-x-4">
+            <div id="avatar-my" className="bg-slate-900/80 backdrop-blur-sm px-6 py-2 rounded-full border border-blue-900/50 shadow-inner flex items-center space-x-4">
               <p className="text-2xl font-mono font-bold text-blue-500 tracking-tighter">
                 <AnimatedNumber value={me?.hp || 0} /> LP
                 {animatingCard?.secondaryTargetId === playerId && (
@@ -2227,6 +3073,7 @@ function MonsterCardDisplay({ monster, isOpponent = false, isAttacking = false, 
 
   return (
     <motion.div 
+      id={monster.instanceId}
       layoutId={monster.instanceId}
       animate={{ 
         y: isAttacking ? (isOpponent ? [-15, 60, 0] : [15, -60, 0]) : 0, 
@@ -2360,5 +3207,648 @@ function SpellEffectOverlay({ spellId }: { spellId: string }) {
        <div className="text-[15rem] filter drop-shadow-[0_0_50px_rgba(168,85,247,0.8)]">{emoji}</div>
     </motion.div>
   );
+}
+
+function LightningStorm() {
+  const [lightning, setLightning] = useState<string | null>(null);
+  const [flashActive, setFlashActive] = useState(false);
+
+  useEffect(() => {
+    const triggerStrike = () => {
+      const x1 = 100 + Math.random() * (window.innerWidth - 200);
+      const y1 = 0;
+      const x2 = x1 + (Math.random() - 0.5) * 200;
+      const y2 = window.innerHeight * 0.7;
+
+      let path = `M ${x1} ${y1}`;
+      let cx = x1;
+      let cy = y1;
+      const segments = 6 + Math.floor(Math.random() * 4);
+      const dx = (x2 - x1) / segments;
+      const dy = (y2 - y1) / segments;
+      for (let i = 1; i < segments; i++) {
+        cx += dx + (Math.random() - 0.5) * 50;
+        cy += dy + (Math.random() - 0.5) * 15;
+        path += ` L ${cx} ${cy}`;
+      }
+      path += ` L ${x2} ${y2}`;
+
+      setLightning(path);
+      setFlashActive(true);
+
+      setTimeout(() => setFlashActive(false), 200);
+      setTimeout(() => setLightning(null), 500);
+    };
+
+    const interval = setInterval(() => {
+      if (Math.random() > 0.45) {
+        triggerStrike();
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
+      <AnimatePresence>
+        {flashActive && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 0.4, 0.2, 0.5, 0] }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="absolute inset-0 bg-cyan-200/35 mix-blend-overlay"
+          />
+        )}
+      </AnimatePresence>
+
+      {lightning && (
+        <svg className="absolute inset-0 w-full h-full text-cyan-300 pointer-events-none" style={{ filter: 'drop-shadow(0 0 12px rgba(103,232,249,0.85)) drop-shadow(0 0 25px rgba(6,182,212,0.6))' }}>
+          <motion.path
+            d={lightning}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            initial={{ pathLength: 0, opacity: 1 }}
+            animate={{ pathLength: 1, opacity: [1, 0.8, 1, 0] }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+          />
+        </svg>
+      )}
+    </div>
+  );
+}
+
+function AttackAnimationOverlay({ animatingCard, gameState, playerId }: { animatingCard: any, gameState: GameState | null, playerId: string | null }) {
+  const [coords, setCoords] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
+
+  useEffect(() => {
+    if (!animatingCard || !gameState) return;
+
+    const timer = setTimeout(() => {
+      const attackerEl = document.getElementById(animatingCard.id);
+      
+      const opponentId = Object.keys(gameState.players).find(id => id !== playerId);
+      let targetId = animatingCard.targetId;
+      if (targetId === opponentId) {
+        targetId = 'avatar-opponent';
+      } else if (targetId === playerId) {
+        targetId = 'avatar-my';
+      }
+      
+      const targetEl = document.getElementById(targetId);
+
+      if (attackerEl && targetEl) {
+        const rectA = attackerEl.getBoundingClientRect();
+        const rectT = targetEl.getBoundingClientRect();
+        setCoords({
+          x1: rectA.left + rectA.width / 2,
+          y1: rectA.top + rectA.height / 2,
+          x2: rectT.left + rectT.width / 2,
+          y2: rectT.top + rectT.height / 2
+        });
+      } else {
+        setCoords({
+          x1: window.innerWidth / 2,
+          y1: window.innerHeight / 2 + 100,
+          x2: window.innerWidth / 2,
+          y2: window.innerHeight / 2 - 100
+        });
+      }
+    }, 40);
+
+    return () => clearTimeout(timer);
+  }, [animatingCard, gameState, playerId]);
+
+  if (!coords) return null;
+
+  let attackerMonsterId = '';
+  if (gameState) {
+    for (const player of Object.values(gameState.players)) {
+      const found = player.monsterZone.find(m => m && m.instanceId === animatingCard.id);
+      if (found) {
+        attackerMonsterId = found.id;
+        break;
+      }
+    }
+  }
+
+  if (!attackerMonsterId) {
+    attackerMonsterId = 'm1';
+  }
+
+  const { x1, y1, x2, y2 } = coords;
+  const distanceX = x2 - x1;
+  const distanceY = y2 - y1;
+  const angle = Math.atan2(distanceY, distanceX) * (180 / Math.PI);
+
+  switch (attackerMonsterId) {
+    case 'm1': // Dragón de Datos
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x1, top: y1, scale: 0.5, rotate: 0 }}
+            animate={{ left: [x1, x2], top: [y1, y2], scale: [0.5, 1.2, 1], rotate: 360 }}
+            transition={{ duration: 0.5, ease: 'easeIn' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center"
+          >
+            <div className="w-6 h-6 bg-emerald-500 border-2 border-emerald-400 shadow-[0_0_15px_#10b981] flex flex-wrap p-0.5 rounded-none relative">
+              <div className="w-2.5 h-2.5 bg-yellow-300 mr-0.5 mb-0.5 animate-pulse" />
+              <div className="w-2.5 h-2.5 bg-emerald-300 mb-0.5 animate-ping" />
+              <div className="w-2.5 h-2.5 bg-green-400 mr-0.5" />
+              <div className="w-2.5 h-2.5 bg-emerald-600" />
+              <div className="absolute right-7 top-1 w-2 h-2 bg-emerald-500 opacity-80" />
+              <div className="absolute -right-3 bottom-1 w-2.5 h-2.5 bg-green-400 opacity-60" />
+            </div>
+          </motion.div>
+          <motion.div
+            initial={{ left: x2, top: y2, scale: 0, opacity: 1 }}
+            animate={{ scale: [0, 2.5], opacity: [1, 0] }}
+            transition={{ duration: 0.4, delay: 0.48 }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-16 h-16 flex items-center justify-center"
+          >
+            <div className="grid grid-cols-3 gap-1.5 w-full h-full">
+              {[...Array(9)].map((_, i) => (
+                <div key={i} className="w-full h-full bg-emerald-400 border border-green-300 shadow-[0_0_5px_#10b981]" />
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      );
+
+    case 'm2': // Caballero de Acero
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x2, top: y2 - 60, rotate: -45, scale: 0.8, opacity: 0 }}
+            animate={{ rotate: [-45, 45], scale: [0.8, 1.4, 1.2], opacity: [0, 1, 1, 0] }}
+            transition={{ duration: 0.5, times: [0, 0.3, 0.7, 1] }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-12 h-36 origin-bottom flex flex-col items-center"
+          >
+            <div className="w-4 h-28 bg-gradient-to-r from-slate-300 via-slate-100 to-slate-400 rounded-t-lg border-x border-t border-slate-50 relative shadow-[0_0_20px_rgba(255,255,255,0.7)]">
+              <div className="absolute left-1.5 top-0 w-0.5 h-full bg-white opacity-60" />
+            </div>
+            <div className="w-14 h-3 bg-amber-500 border border-amber-600 rounded" />
+            <div className="w-2.5 h-8 bg-amber-950 rounded-b" />
+          </motion.div>
+          <motion.div
+            initial={{ left: x2 - 80, top: y2 - 20, width: 0, opacity: 1 }}
+            animate={{ width: [0, 160], opacity: [1, 1, 0] }}
+            transition={{ duration: 0.4, delay: 0.15 }}
+            style={{ rotate: '25deg' }}
+            className="absolute h-1.5 bg-white shadow-[0_0_15px_white] rounded-full"
+          />
+        </div>
+      );
+
+    case 'm3': // Mago Tormenta
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 0.6, 0.2, 0.7, 0] }}
+            transition={{ duration: 0.4 }}
+            className="absolute inset-0 bg-blue-400/20 mix-blend-overlay"
+          />
+          <svg className="absolute inset-0 w-full h-full text-blue-400" style={{ filter: 'drop-shadow(0 0 10px rgba(59,130,246,0.8))' }}>
+            <motion.path
+              d={`M ${x1} ${y1} L ${(x1+x2)/2 + (Math.random()-0.5)*60} ${(y1+y2)/2 + (Math.random()-0.5)*40} L ${x2} ${y2}`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="4"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: [0, 1], opacity: [1, 0.8, 1, 0] }}
+              transition={{ duration: 0.45 }}
+            />
+            <motion.path
+              d={`M ${x1+20} ${y1-10} L ${(x1+x2)/2 - 30} ${(y1+y2)/2} L ${x2} ${y2}`}
+              fill="none"
+              stroke="#60a5fa"
+              strokeWidth="2.5"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: [0, 1], opacity: [1, 0] }}
+              transition={{ duration: 0.4, delay: 0.05 }}
+            />
+          </svg>
+          {[...Array(6)].map((_, i) => {
+            const dx = (Math.random() - 0.5) * 80;
+            const dy = (Math.random() - 0.5) * 80;
+            return (
+              <motion.div
+                key={i}
+                initial={{ left: x2, top: y2, scale: 0, opacity: 1 }}
+                animate={{ left: x2 + dx, top: y2 + dy, scale: [0, 1.5, 0], opacity: 0 }}
+                transition={{ duration: 0.5, delay: 0.25 }}
+                className="absolute w-2 h-2 bg-blue-300 rounded-full shadow-[0_0_8px_#3b82f6]"
+              />
+            );
+          })}
+        </div>
+      );
+
+    case 'm4': // Gólem de Concreto
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x2, top: y2 - 120, scale: 1.8, opacity: 0 }}
+            animate={{ top: [y2 - 120, y2], scale: [1.8, 1], opacity: [0, 1, 1, 0] }}
+            transition={{ duration: 0.5, times: [0, 0.4, 0.8, 1], ease: 'easeIn' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-16 h-16 flex items-center justify-center text-6xl drop-shadow-[0_0_15px_black]"
+          >
+            ✊
+          </motion.div>
+          <motion.div
+            initial={{ left: x2, top: y2, scale: 0, opacity: 1, border: '2px solid rgba(120,113,108,0.8)' }}
+            animate={{ scale: [0, 2.5], opacity: [1, 0] }}
+            transition={{ duration: 0.4, delay: 0.22 }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full"
+          />
+          {[...Array(8)].map((_, i) => {
+            const rx = (Math.random() - 0.5) * 120;
+            const ry = (Math.random() - 0.5) * 80 - 40;
+            return (
+              <motion.div
+                key={i}
+                initial={{ left: x2, top: y2, scale: 1 }}
+                animate={{ left: x2 + rx, top: y2 + ry, y: [0, -60, 40], scale: 0, rotate: 360 }}
+                transition={{ duration: 0.6, delay: 0.2, ease: 'easeOut' }}
+                className="absolute w-3.5 h-3 bg-stone-600 border border-stone-800 rounded"
+              />
+            );
+          })}
+        </div>
+      );
+
+    case 'm5': // Limo Tóxico
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x1, top: y1, scale: 0.6 }}
+            animate={{ left: [x1, x2], top: [y1, y2], scale: [0.6, 1.2, 0.8] }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-7 h-7 bg-green-500 rounded-full blur-[1px] border border-green-400 shadow-[0_0_12px_#22c55e]"
+          />
+          {[...Array(10)].map((_, i) => {
+            const vx = (Math.random() - 0.5) * 90;
+            const vy = (Math.random() - 0.5) * 90;
+            return (
+              <motion.div
+                key={i}
+                initial={{ left: x2, top: y2, scale: 1.2, opacity: 1 }}
+                animate={{ left: x2 + vx, top: y2 + vy, scale: 0, opacity: 0 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+                className="absolute w-3 h-3 bg-green-400 rounded-full blur-[0.5px]"
+              />
+            );
+          })}
+        </div>
+      );
+
+    case 'm6': // Espectro de Red
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <motion.div
+              initial={{ opacity: 0, scaleY: 0 }}
+              animate={{ opacity: [0, 0.8, 0], scaleY: [0, 1.5, 0] }}
+              transition={{ duration: 0.6 }}
+              className="w-1.5 h-screen bg-emerald-500/50 blur-[2px]"
+              style={{ left: x2, position: 'absolute' }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scaleX: 0 }}
+              animate={{ opacity: [0, 0.8, 0], scaleX: [0, 1.5, 0] }}
+              transition={{ duration: 0.6 }}
+              className="h-1.5 w-screen bg-emerald-500/50 blur-[2px]"
+              style={{ top: y2, position: 'absolute' }}
+            />
+          </div>
+          {[...Array(5)].map((_, col) => {
+            const cx = x2 + (col - 2) * 22;
+            return (
+              <div key={col} className="absolute flex flex-col font-mono text-[10px] text-emerald-400 font-bold" style={{ left: cx, top: y2 - 80 }}>
+                {[...Array(6)].map((_, idx) => (
+                  <motion.span
+                    key={idx}
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: [0, 1, 0], y: 120 }}
+                    transition={{ duration: 0.55, delay: col * 0.05 + idx * 0.04 }}
+                  >
+                    {Math.random() > 0.5 ? '1' : '0'}
+                  </motion.span>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      );
+
+    case 'm7': // Bestia de Asfalto
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x1, top: y1, opacity: 0 }}
+            animate={{ left: [x1, x2], top: [y1, y2], opacity: [0, 0.9, 0.2] }}
+            transition={{ duration: 0.45, ease: 'easeIn' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-14 h-8 bg-slate-900 border border-slate-700 rounded-lg flex flex-col items-center justify-center shadow-lg"
+          >
+            <div className="w-full h-1 bg-gradient-to-r from-red-500 to-amber-500 animate-pulse" />
+          </motion.div>
+          <svg className="absolute inset-0 w-full h-full text-zinc-950/70" style={{ strokeWidth: 5, strokeDasharray: '4,4' }}>
+            <motion.line
+              x1={x1} y1={y1} x2={x2} y2={y2}
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1, opacity: [0.8, 0.8, 0] }}
+              transition={{ duration: 0.6 }}
+            />
+          </svg>
+          <motion.div
+            initial={{ left: x2, top: y2, scale: 0, opacity: 1 }}
+            animate={{ scale: [0, 1.8, 2.2], opacity: [1, 1, 0] }}
+            transition={{ duration: 0.45, delay: 0.35 }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 text-4xl"
+          >
+            🔥
+          </motion.div>
+        </div>
+      );
+
+    case 'm8': // Leviatán de Nubes
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x1, top: y1, scale: 0.4, rotate: 0 }}
+            animate={{ left: [x1, x2], top: [y1, y2], scale: [0.4, 1.6, 1], rotate: 720 }}
+            transition={{ duration: 0.5, ease: 'easeInOut' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-16 h-16 flex items-center justify-center text-4xl filter drop-shadow-[0_0_10px_white]"
+          >
+            🌀
+          </motion.div>
+          {[...Array(3)].map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ left: x2, top: y2, scaleX: 0, opacity: 1, rotate: i * 60 }}
+              animate={{ scaleX: [0, 1.8], opacity: [1, 0] }}
+              transition={{ duration: 0.4, delay: 0.4 }}
+              className="absolute w-24 h-0.5 bg-cyan-200 blur-[0.5px]"
+            />
+          ))}
+        </div>
+      );
+
+    case 'm9': // Titán de Cristal
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <svg className="absolute inset-0 w-full h-full">
+            <motion.line
+              x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke="white"
+              strokeWidth="4"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1, opacity: [1, 1, 0] }}
+              transition={{ duration: 0.4 }}
+              style={{ filter: 'drop-shadow(0 0 8px white)' }}
+            />
+            <motion.line
+              x1={x2} y1={y2} x2={x2 + (Math.random()-0.5)*100} y2={y2 + (Math.random()-0.5)*100}
+              stroke="#ef4444"
+              strokeWidth="2.5"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1, opacity: [1, 0] }}
+              transition={{ duration: 0.4, delay: 0.3 }}
+            />
+            <motion.line
+              x1={x2} y1={y2} x2={x2 + (Math.random()-0.5)*100} y2={y2 + (Math.random()-0.5)*100}
+              stroke="#10b981"
+              strokeWidth="2.5"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1, opacity: [1, 0] }}
+              transition={{ duration: 0.4, delay: 0.3 }}
+            />
+            <motion.line
+              x1={x2} y1={y2} x2={x2 + (Math.random()-0.5)*100} y2={y2 + (Math.random()-0.5)*100}
+              stroke="#3b82f6"
+              strokeWidth="2.5"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1, opacity: [1, 0] }}
+              transition={{ duration: 0.4, delay: 0.3 }}
+            />
+          </svg>
+        </div>
+      );
+
+    case 'm10': // Guardián del Pozo
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x2, top: y2 + 80, height: 0, opacity: 0.9 }}
+            animate={{ top: y2 - 40, height: 120, opacity: [0.9, 0.9, 0] }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="absolute -translate-x-1/2 w-8 bg-zinc-950 rounded-full blur-[2px]"
+          />
+          <motion.div
+            initial={{ left: x2, top: y2 + 10, scale: 0, opacity: 1 }}
+            animate={{ scale: [0, 2.2, 1.8], opacity: [1, 1, 0] }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 text-5xl"
+          >
+            🔥💥
+          </motion.div>
+        </div>
+      );
+
+    case 'm13': // Predicado Universal
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x1, top: y1, scale: 0.5, rotate: 0 }}
+            animate={{ left: [x1, x2], top: [y1, y2], scale: [0.5, 2, 1.5], rotate: 360 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 text-purple-400 font-bold text-5xl font-mono filter drop-shadow-[0_0_10px_purple]"
+          >
+            ∀
+          </motion.div>
+          <motion.div
+            initial={{ left: x1 - 30, top: y1 + 10, scale: 0.4, rotate: 0 }}
+            animate={{ left: [x1 - 30, x2 - 20], top: [y1 + 10, y2 - 20], scale: [0.4, 1.8, 1.2], rotate: -360 }}
+            transition={{ duration: 0.5, delay: 0.08, ease: 'easeOut' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 text-cyan-400 font-bold text-4xl font-mono filter drop-shadow-[0_0_10px_cyan]"
+          >
+            ∃
+          </motion.div>
+        </div>
+      );
+
+    case 'm14': // Tautología
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x2, top: y2, scale: 0.2, opacity: 1 }}
+            animate={{ scale: [0.2, 2.5], opacity: [1, 0] }}
+            transition={{ duration: 0.5 }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-gradient-to-r from-amber-400/40 to-yellow-300/40 border border-yellow-400/80 shadow-[0_0_30px_#fbbf24]"
+          />
+          {[...Array(5)].map((_, i) => {
+            const rx = (Math.random() - 0.5) * 140;
+            const ry = (Math.random() - 0.5) * 140;
+            return (
+              <motion.div
+                key={i}
+                initial={{ left: x2, top: y2, scale: 0.5, opacity: 1 }}
+                animate={{ left: x2 + rx, top: y2 + ry, scale: 2, opacity: 0 }}
+                transition={{ duration: 0.6 }}
+                className="absolute -translate-x-1/2 -translate-y-1/2 text-yellow-300 font-black text-2xl font-mono"
+              >
+                T
+              </motion.div>
+            );
+          })}
+        </div>
+      );
+
+    case 'm15': // Orador Persuasivo
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          {[...Array(4)].map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ left: x1, top: y1, scale: 0.1, opacity: 0.9 }}
+              animate={{ left: [x1, x2], top: [y1, y2], scale: [0.1, 1.8], opacity: [0.9, 0] }}
+              transition={{ duration: 0.5, delay: i * 0.1, ease: 'easeOut' }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 w-14 h-14 border border-indigo-400/80 rounded-full flex items-center justify-center font-bold text-indigo-300"
+            >
+              💬
+            </motion.div>
+          ))}
+        </div>
+      );
+
+    case 'm16': // Sujeto Tácito
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x1, top: y1, opacity: 0.8, scale: 1 }}
+            animate={{ left: [x1, x2, x2 + 40], top: [y1, y2, y2 + 10], opacity: [0.8, 0.8, 0] }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-12 h-20 bg-indigo-950 border border-purple-900/60 rounded-xl blur-[1.5px]"
+          />
+          <motion.div
+            initial={{ left: x2 - 50, top: y2 - 40, width: 0, opacity: 1 }}
+            animate={{ width: [0, 100], opacity: [1, 0] }}
+            transition={{ duration: 0.35, delay: 0.25 }}
+            style={{ rotate: '-35deg' }}
+            className="absolute h-1 bg-purple-600 shadow-[0_0_15px_#a855f7]"
+          />
+        </div>
+      );
+
+    case 'm17': // Visión de Vida
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x1, top: y1 - 40, scale: 0, opacity: 0 }}
+            animate={{ scale: [0, 1.5, 1.5, 0], opacity: [0, 1, 1, 0] }}
+            transition={{ duration: 0.6, times: [0, 0.2, 0.8, 1] }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 text-4xl"
+          >
+            👁️
+          </motion.div>
+          <svg className="absolute inset-0 w-full h-full">
+            <motion.line
+              x1={x1} y1={y1 - 40} x2={x2} y2={y2}
+              stroke="#c084fc"
+              strokeWidth="5"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: [0, 1, 1, 0], opacity: [0, 1, 1, 0] }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              style={{ filter: 'drop-shadow(0 0 10px #c084fc)' }}
+            />
+          </svg>
+        </div>
+      );
+
+    case 'm18': // Buscador de Metas
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x1, top: y1, rotate: angle }}
+            animate={{ left: [x1, x2], top: [y1, y2] }}
+            transition={{ duration: 0.45, ease: 'easeIn' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 text-3xl"
+          >
+            🏹
+          </motion.div>
+          <motion.div
+            initial={{ left: x2, top: y2, scale: 0, opacity: 0 }}
+            animate={{ scale: [0, 1.8, 1.8, 0], opacity: [0, 1, 1, 0] }}
+            transition={{ duration: 0.5, delay: 0.35 }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 text-4xl"
+          >
+            🎯
+          </motion.div>
+        </div>
+      );
+
+    case 'm19': // Coloso de la Fuerza
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x2, top: y2, scale: 0.1, opacity: 1 }}
+            animate={{ scale: [0.1, 3.5], opacity: [1, 0] }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border-4 border-red-500 shadow-[0_0_40px_#ef4444] mix-blend-color-dodge"
+          />
+          {[...Array(4)].map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ left: x2, top: y2, scale: 0.2, opacity: 0.8 }}
+              animate={{ scale: [0.2, 2.5 + i * 0.5], opacity: [0.8, 0] }}
+              transition={{ duration: 0.45, delay: i * 0.08 }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border-2 border-orange-400"
+            />
+          ))}
+        </div>
+      );
+
+    case 'm20': // Velocista del Viento
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x1, top: y1, opacity: 0.8, scaleX: 2 }}
+            animate={{ left: [x1, x2, x1], top: [y1, y2, y1], opacity: [0.8, 0.8, 0] }}
+            transition={{ duration: 0.48, ease: 'easeInOut' }}
+            style={{ rotate: angle }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-20 h-4 bg-gradient-to-r from-cyan-400/80 via-blue-500 to-transparent blur-[1px] rounded"
+          />
+          <motion.div
+            initial={{ left: x2, top: y2, scale: 0.1, opacity: 1 }}
+            animate={{ scale: [0.1, 2.2], opacity: [1, 0] }}
+            transition={{ duration: 0.4, delay: 0.24 }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full border border-cyan-400 blur-[0.5px]"
+          />
+        </div>
+      );
+
+    default:
+      return (
+        <div className="fixed inset-0 pointer-events-none z-[100]">
+          <motion.div
+            initial={{ left: x1, top: y1, scale: 0.5 }}
+            animate={{ left: [x1, x2], top: [y1, y2], scale: [0.5, 1.2, 0.8] }}
+            transition={{ duration: 0.4, ease: 'easeIn' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-yellow-400 rounded-full shadow-[0_0_10px_#fbbf24]"
+          />
+          <motion.div
+            initial={{ left: x2, top: y2, scale: 0, opacity: 1 }}
+            animate={{ scale: [0, 2], opacity: [1, 0] }}
+            transition={{ duration: 0.3, delay: 0.38 }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full shadow-[0_0_15px_white]"
+          />
+        </div>
+      );
+  }
 }
 

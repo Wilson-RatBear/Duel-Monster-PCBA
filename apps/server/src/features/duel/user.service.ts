@@ -27,6 +27,11 @@ function mapDbToProfile(dbRow: DbProfile): UserProfile {
   let pvpMatches = 0;
   let matchHistory: any[] = [];
   let savedDecks: any[] = [];
+  let role: 'student' | 'teacher' | 'admin' = 'student';
+  let blocked = false;
+  let visitedStudents: any[] = [];
+  let notesLeft: any[] = [];
+  let teacherNotes: any[] = [];
   
   for (const [key, value] of Object.entries(inventory)) {
     if (key === '_pveMatches') {
@@ -37,6 +42,16 @@ function mapDbToProfile(dbRow: DbProfile): UserProfile {
       matchHistory = Array.isArray(value) ? value : [];
     } else if (key === '_savedDecks') {
       savedDecks = Array.isArray(value) ? value : [];
+    } else if (key === '_role') {
+      role = value as any;
+    } else if (key === '_blocked') {
+      blocked = !!value;
+    } else if (key === '_visitedStudents') {
+      visitedStudents = Array.isArray(value) ? value : [];
+    } else if (key === '_notesLeft') {
+      notesLeft = Array.isArray(value) ? value : [];
+    } else if (key === '_teacherNotes') {
+      teacherNotes = Array.isArray(value) ? value : [];
     } else {
       cardInventory[key] = Number(value);
     }
@@ -50,7 +65,12 @@ function mapDbToProfile(dbRow: DbProfile): UserProfile {
     pveMatches,
     pvpMatches,
     matchHistory,
-    savedDecks
+    savedDecks,
+    role,
+    blocked,
+    visitedStudents,
+    notesLeft,
+    teacherNotes
   };
 }
 
@@ -79,13 +99,18 @@ function saveLocalProfile(profile: UserProfile & { password?: string }) {
   }
 }
 
-export async function saveUserProfile(profile: UserProfile): Promise<void> {
+export async function saveUserProfile(profile: UserProfile & { password?: string }): Promise<void> {
   const dbInventory: Record<string, any> = { ...profile.cardInventory };
   
   if (profile.pveMatches !== undefined) dbInventory._pveMatches = profile.pveMatches;
   if (profile.pvpMatches !== undefined) dbInventory._pvpMatches = profile.pvpMatches;
   if (profile.matchHistory !== undefined) dbInventory._matchHistory = profile.matchHistory;
   if (profile.savedDecks !== undefined) dbInventory._savedDecks = profile.savedDecks;
+  if (profile.role !== undefined) dbInventory._role = profile.role;
+  if (profile.blocked !== undefined) dbInventory._blocked = profile.blocked;
+  if (profile.visitedStudents !== undefined) dbInventory._visitedStudents = profile.visitedStudents;
+  if (profile.notesLeft !== undefined) dbInventory._notesLeft = profile.notesLeft;
+  if (profile.teacherNotes !== undefined) dbInventory._teacherNotes = profile.teacherNotes;
 
   let hasSavedSupabase = false;
 
@@ -106,9 +131,8 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
     }
   }
 
-  if (!hasSavedSupabase) {
-    saveLocalProfile(profile);
-  }
+  // Always save locally as a reliable fallback or for local dev sync
+  saveLocalProfile(profile);
 }
 
 export async function getUserProfile(id: string): Promise<UserProfile & { password?: string }> {
@@ -158,6 +182,11 @@ export async function getUserProfile(id: string): Promise<UserProfile & { passwo
     pvpMatches: 0,
     matchHistory: [],
     savedDecks: [],
+    role: 'student',
+    blocked: false,
+    visitedStudents: [],
+    notesLeft: [],
+    teacherNotes: [],
     password: ''
   };
 
@@ -179,6 +208,77 @@ export async function getUserProfile(id: string): Promise<UserProfile & { passwo
 
   saveLocalProfile(profile);
   return profile;
+}
+
+export async function deleteUserProfile(id: string): Promise<void> {
+  if (process.env.SUPABASE_URL) {
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', id);
+    if (error) {
+      console.error(`[USER DB] Error deleting profile from Supabase for ${id}:`, error);
+    }
+  }
+
+  const filePath = getProfilePath(id);
+  if (fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (err) {
+      console.error(`[USER DB] Error unlinking local profile for ${id}:`, err);
+    }
+  }
+}
+
+export async function getAllUserProfiles(): Promise<UserProfile[]> {
+  if (process.env.SUPABASE_URL) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, name, pve_wins, card_inventory');
+    
+    if (!error && data) {
+      return data.map((row: any) => mapDbToProfile(row as DbProfile));
+    }
+  }
+
+  if (!fs.existsSync(PROFILES_DIR)) {
+    return [];
+  }
+
+  try {
+    const files = fs.readdirSync(PROFILES_DIR);
+    const profiles: UserProfile[] = [];
+    for (const file of files) {
+      if (file.endsWith('.json')) {
+        const data = fs.readFileSync(path.join(PROFILES_DIR, file), 'utf8');
+        try {
+          const parsed = JSON.parse(data);
+          const { password: _, ...cleanProfile } = parsed;
+          profiles.push(cleanProfile);
+        } catch (e) {}
+      }
+    }
+    return profiles;
+  } catch (err) {
+    console.error(`[USER DB] Error listing local profiles:`, err);
+    return [];
+  }
+}
+
+export async function bootstrapAdminAccount(): Promise<void> {
+  try {
+    const profile = await getUserProfile('admin');
+    if (profile.role !== 'admin') {
+      profile.name = 'Administrador General';
+      profile.role = 'admin';
+      profile.password = 'admin123';
+      await saveUserProfile(profile);
+      console.log('[USER DB] Bootstrapped default admin account: user=admin, password=admin123');
+    }
+  } catch (err) {
+    console.error(`[USER DB] Error checking/bootstrapping admin account:`, err);
+  }
 }
 
 export async function addStudentProgress(data: { studentId: string; concept: string; masteryPoints: number }) {
@@ -257,50 +357,21 @@ export async function registerUser(username: string, password: string, displayNa
     return { success: false, message: 'Nombre de usuario inválido.' };
   }
   
-  if (!process.env.SUPABASE_URL) {
-    const filePath = getProfilePath(cleanUsername);
-    if (fs.existsSync(filePath)) {
+  const filePath = getProfilePath(cleanUsername);
+  if (fs.existsSync(filePath)) {
+    return { success: false, message: 'El usuario ya existe.' };
+  }
+
+  if (process.env.SUPABASE_URL) {
+    const { data: existingUser } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', cleanUsername)
+      .single();
+
+    if (existingUser) {
       return { success: false, message: 'El usuario ya existe.' };
     }
-    
-    const initialInventory: Record<string, number> = {};
-    const allCards = [...MONSTERS, ...SPELLS];
-    allCards.forEach(c => {
-      if (!c.isUnlockable) {
-        initialInventory[c.id] = 1;
-      }
-    });
-    
-    const profile = {
-      id: cleanUsername,
-      name: displayName?.trim() || username,
-      password: password,
-      pveWins: 0,
-      cardInventory: initialInventory,
-      pveMatches: 0,
-      pvpMatches: 0,
-      matchHistory: [],
-      savedDecks: []
-    };
-    
-    try {
-      saveLocalProfile(profile);
-      const { password: _, ...cleanProfile } = profile;
-      return { success: true, message: 'Usuario registrado con éxito.', profile: cleanProfile };
-    } catch (err) {
-      return { success: false, message: 'Error al crear la cuenta localmente.' };
-    }
-  }
-  
-  // Check if user already exists in Supabase
-  const { data: existingUser } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('id', cleanUsername)
-    .single();
-
-  if (existingUser) {
-    return { success: false, message: 'El usuario ya existe.' };
   }
 
   const initialInventory: Record<string, number> = {};
@@ -315,33 +386,41 @@ export async function registerUser(username: string, password: string, displayNa
     id: cleanUsername,
     name: displayName?.trim() || username,
     password: password,
-    pve_wins: 0,
-    card_inventory: initialInventory
+    pveWins: 0,
+    cardInventory: initialInventory,
+    pveMatches: 0,
+    pvpMatches: 0,
+    matchHistory: [],
+    savedDecks: [],
+    role: 'student' as const,
+    blocked: false,
+    visitedStudents: [],
+    notesLeft: [],
+    teacherNotes: []
   };
 
-  try {
-    const { error } = await supabase
-      .from('profiles')
-      .insert(profile);
+  if (process.env.SUPABASE_URL) {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .insert({
+          id: profile.id,
+          name: profile.name,
+          password: password,
+          pve_wins: profile.pveWins,
+          card_inventory: profile.cardInventory
+        });
 
-    if (error) throw error;
-
-    const userProfile: UserProfile = {
-      id: profile.id,
-      name: profile.name,
-      pveWins: profile.pve_wins,
-      cardInventory: profile.card_inventory,
-      pveMatches: 0,
-      pvpMatches: 0,
-      matchHistory: [],
-      savedDecks: []
-    };
-
-    return { success: true, message: 'Usuario registrado con éxito.', profile: userProfile };
-  } catch (err) {
-    console.error(`[USER DB] Error registering user ${cleanUsername}:`, err);
-    return { success: false, message: 'Error al crear la cuenta en el servidor.' };
+      if (error) throw error;
+    } catch (err) {
+      console.error(`[USER DB] Error registering user ${cleanUsername} on Supabase:`, err);
+      return { success: false, message: 'Error al crear la cuenta en el servidor.' };
+    }
   }
+
+  saveLocalProfile(profile);
+  const { password: _, ...cleanProfile } = profile;
+  return { success: true, message: 'Usuario registrado con éxito.', profile: cleanProfile };
 }
 
 export async function loginUser(username: string, password: string): Promise<{ success: boolean; message: string; profile?: UserProfile }> {
@@ -350,38 +429,20 @@ export async function loginUser(username: string, password: string): Promise<{ s
     return { success: false, message: 'Nombre de usuario inválido.' };
   }
 
-  if (!process.env.SUPABASE_URL) {
-    const filePath = getProfilePath(cleanUsername);
-    if (!fs.existsSync(filePath)) {
+  const profile = await getUserProfile(cleanUsername);
+  
+  if (!profile || profile.password !== password) {
+    // If it's a completely new default object (not saved in local file or Supabase), the name is 'Estudiante'
+    if (!profile || profile.name === 'Estudiante') {
       return { success: false, message: 'El usuario no existe.' };
     }
-    try {
-      const data = fs.readFileSync(filePath, 'utf8');
-      const profile = JSON.parse(data);
-      if (profile.password !== password) {
-        return { success: false, message: 'Contraseña incorrecta.' };
-      }
-      const { password: _, ...cleanProfile } = profile;
-      return { success: true, message: 'Sesión iniciada con éxito.', profile: cleanProfile };
-    } catch (err) {
-      return { success: false, message: 'Error al iniciar sesión localmente.' };
-    }
-  }
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, name, password, pve_wins, card_inventory')
-    .eq('id', cleanUsername)
-    .single();
-
-  if (error || !data) {
-    return { success: false, message: 'El usuario no existe.' };
-  }
-
-  if (data.password !== password) {
     return { success: false, message: 'Contraseña incorrecta.' };
   }
 
-  const userProfile: UserProfile = mapDbToProfile(data as DbProfile);
-  return { success: true, message: 'Sesión iniciada con éxito.', profile: userProfile };
+  if (profile.blocked) {
+    return { success: false, message: 'Esta cuenta ha sido bloqueada por el administrador.' };
+  }
+
+  const { password: _, ...cleanProfile } = profile;
+  return { success: true, message: 'Sesión iniciada con éxito.', profile: cleanProfile };
 }

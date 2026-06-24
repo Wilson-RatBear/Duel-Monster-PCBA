@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
-import { GameState, PlayerState, MonsterCard, SpellCard, ClientToServerEvents, ServerToClientEvents, MONSTERS, SPELLS, Card, getCardCareers } from '@repo/game-types';
-import { getUserProfile, saveUserProfile, addStudentProgress, addWin, loginUser, registerUser, recordMatchResult } from './user.service.js';
+import { GameState, PlayerState, MonsterCard, SpellCard, ClientToServerEvents, ServerToClientEvents, MONSTERS, SPELLS, Card, getCardCareers, UserProfile } from '@repo/game-types';
+import { getUserProfile, saveUserProfile, addStudentProgress, addWin, loginUser, registerUser, recordMatchResult, bootstrapAdminAccount, deleteUserProfile, getAllUserProfiles } from './user.service.js';
 import { createInitialPlayerState as createCpuPlayerState } from './duel.service.js';
 import { validateAcademicAction } from './academic-validator.js';
 
@@ -142,6 +142,8 @@ function updateDominantTheme(game: GameState) {
 }
 
 export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientEvents>) {
+  bootstrapAdminAccount();
+
   io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
@@ -995,6 +997,240 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       
       if (opponentId === 'cpu') {
         handleCpuTurn(roomId);
+      }
+    });
+
+    socket.on('teacherSearchStudent', async (studentId) => {
+      const teacherId = socketToPlayerId[socket.id];
+      if (!teacherId) return;
+
+      try {
+        const teacherProfile = await getUserProfile(teacherId);
+        if (teacherProfile.role !== 'teacher') {
+          socket.emit('error', 'No tienes permiso para buscar perfiles de estudiantes.');
+          return;
+        }
+
+        const studentProfile = await getUserProfile(studentId);
+        if (!studentProfile || studentProfile.name === 'Estudiante') {
+          socket.emit('teacherStudentSearchResult', null);
+          return;
+        }
+
+        if (!teacherProfile.visitedStudents) teacherProfile.visitedStudents = [];
+        teacherProfile.visitedStudents.unshift({
+          studentId: studentProfile.id,
+          studentName: studentProfile.name,
+          date: new Date().toISOString()
+        });
+        if (teacherProfile.visitedStudents.length > 50) {
+          teacherProfile.visitedStudents = teacherProfile.visitedStudents.slice(0, 50);
+        }
+        await saveUserProfile(teacherProfile);
+
+        const { password: _, ...cleanStudent } = studentProfile as any;
+        socket.emit('teacherStudentSearchResult', cleanStudent as any);
+      } catch (err) {
+        console.error("Error searching student profile:", err);
+        socket.emit('error', 'Error al buscar el perfil del alumno.');
+      }
+    });
+
+    socket.on('teacherAddNote', async (studentId, content) => {
+      const teacherId = socketToPlayerId[socket.id];
+      if (!teacherId) return;
+
+      try {
+        const teacherProfile = await getUserProfile(teacherId);
+        if (teacherProfile.role !== 'teacher') {
+          socket.emit('error', 'No tienes permiso para agregar notas.');
+          return;
+        }
+
+        const studentProfile = await getUserProfile(studentId);
+        if (!studentProfile || studentProfile.name === 'Estudiante') {
+          socket.emit('error', 'El alumno no existe.');
+          return;
+        }
+
+        const newNote = {
+          id: uuidv4(),
+          studentId: studentProfile.id,
+          studentName: studentProfile.name,
+          teacherId: teacherProfile.id,
+          teacherName: teacherProfile.name,
+          content: content.trim(),
+          date: new Date().toISOString()
+        };
+
+        if (!studentProfile.teacherNotes) studentProfile.teacherNotes = [];
+        studentProfile.teacherNotes.unshift(newNote);
+        await saveUserProfile(studentProfile);
+
+        if (!teacherProfile.notesLeft) teacherProfile.notesLeft = [];
+        teacherProfile.notesLeft.unshift(newNote);
+        await saveUserProfile(teacherProfile);
+
+        const { password: _, ...cleanStudent } = studentProfile as any;
+        socket.emit('teacherStudentSearchResult', cleanStudent as any);
+      } catch (err) {
+        console.error("Error adding teacher note:", err);
+        socket.emit('error', 'Error al agregar la nota.');
+      }
+    });
+
+    socket.on('adminGetDashboardData', async () => {
+      const adminId = socketToPlayerId[socket.id];
+      if (!adminId) return;
+
+      try {
+        const adminProfile = await getUserProfile(adminId);
+        if (adminProfile.role !== 'admin') {
+          socket.emit('error', 'No tienes permiso para acceder al panel de administración.');
+          return;
+        }
+
+        const allProfiles = await getAllUserProfiles();
+        socket.emit('adminDashboardData', { users: allProfiles });
+      } catch (err) {
+        console.error("Error fetching admin dashboard data:", err);
+        socket.emit('error', 'Error al obtener datos del panel.');
+      }
+    });
+
+    socket.on('adminCreateTeacher', async (username, password, displayName) => {
+      const adminId = socketToPlayerId[socket.id];
+      if (!adminId) return;
+
+      try {
+        const adminProfile = await getUserProfile(adminId);
+        if (adminProfile.role !== 'admin') {
+          socket.emit('error', 'No tienes permiso para crear cuentas.');
+          return;
+        }
+
+        const cleanUsername = username.trim().toLowerCase().replace(/[^a-zA-Z0-9-]/g, '');
+        if (!cleanUsername) {
+          socket.emit('error', 'Nombre de usuario inválido.');
+          return;
+        }
+
+        const existing = await getUserProfile(cleanUsername);
+        if (existing && existing.name !== 'Estudiante') {
+          socket.emit('error', 'El usuario ya existe.');
+          return;
+        }
+
+        const profile: UserProfile & { password?: string } = {
+          id: cleanUsername,
+          name: displayName.trim() || username,
+          password: password,
+          pveWins: 0,
+          cardInventory: {},
+          pveMatches: 0,
+          pvpMatches: 0,
+          matchHistory: [],
+          savedDecks: [],
+          role: 'teacher',
+          blocked: false,
+          visitedStudents: [],
+          notesLeft: [],
+          teacherNotes: []
+        };
+
+        await saveUserProfile(profile);
+
+        const allProfiles = await getAllUserProfiles();
+        socket.emit('adminDashboardData', { users: allProfiles });
+      } catch (err) {
+        console.error("Error creating teacher account:", err);
+        socket.emit('error', 'Error al crear la cuenta de docente.');
+      }
+    });
+
+    socket.on('adminDeleteUser', async (userId) => {
+      const adminId = socketToPlayerId[socket.id];
+      if (!adminId) return;
+
+      try {
+        const adminProfile = await getUserProfile(adminId);
+        if (adminProfile.role !== 'admin') {
+          socket.emit('error', 'No tienes permiso para eliminar usuarios.');
+          return;
+        }
+
+        if (userId === 'admin') {
+          socket.emit('error', 'No se puede eliminar la cuenta administradora principal.');
+          return;
+        }
+
+        await deleteUserProfile(userId);
+
+        const allProfiles = await getAllUserProfiles();
+        socket.emit('adminDashboardData', { users: allProfiles });
+      } catch (err) {
+        console.error("Error deleting user:", err);
+        socket.emit('error', 'Error al eliminar el usuario.');
+      }
+    });
+
+    socket.on('adminToggleBlockUser', async (userId) => {
+      const adminId = socketToPlayerId[socket.id];
+      if (!adminId) return;
+
+      try {
+        const adminProfile = await getUserProfile(adminId);
+        if (adminProfile.role !== 'admin') {
+          socket.emit('error', 'No tienes permiso para bloquear usuarios.');
+          return;
+        }
+
+        if (userId === 'admin') {
+          socket.emit('error', 'No se puede bloquear la cuenta administradora principal.');
+          return;
+        }
+
+        const targetProfile = await getUserProfile(userId);
+        targetProfile.blocked = !targetProfile.blocked;
+        await saveUserProfile(targetProfile);
+
+        const allProfiles = await getAllUserProfiles();
+        socket.emit('adminDashboardData', { users: allProfiles });
+      } catch (err) {
+        console.error("Error toggling user block:", err);
+        socket.emit('error', 'Error al cambiar el estado de bloqueo.');
+      }
+    });
+
+    socket.on('adminModifyUserCards', async (userId, cardId, amount) => {
+      const adminId = socketToPlayerId[socket.id];
+      if (!adminId) return;
+
+      try {
+        const adminProfile = await getUserProfile(adminId);
+        if (adminProfile.role !== 'admin') {
+          socket.emit('error', 'No tienes permiso para modificar inventarios.');
+          return;
+        }
+
+        const targetProfile = await getUserProfile(userId);
+        if (!targetProfile.cardInventory) targetProfile.cardInventory = {};
+        
+        const currentVal = targetProfile.cardInventory[cardId] || 0;
+        const newVal = Math.max(0, currentVal + amount);
+        if (newVal === 0) {
+          delete targetProfile.cardInventory[cardId];
+        } else {
+          targetProfile.cardInventory[cardId] = newVal;
+        }
+
+        await saveUserProfile(targetProfile);
+
+        const allProfiles = await getAllUserProfiles();
+        socket.emit('adminDashboardData', { users: allProfiles });
+      } catch (err) {
+        console.error("Error modifying cards:", err);
+        socket.emit('error', 'Error al modificar las cartas del usuario.');
       }
     });
 
