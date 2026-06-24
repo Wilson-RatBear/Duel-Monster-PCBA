@@ -70,11 +70,31 @@ export interface GameState {
   dominantTheme?: string;
 }
 
+export interface MatchHistoryEntry {
+  id: string;
+  date: string; // ISO string
+  mode: 'adventure' | 'multiplayer';
+  opponentId: string;
+  opponentName: string;
+  result: 'win' | 'loss';
+  myHp: number;
+  opponentHp: number;
+}
+
+export interface SavedDeck {
+  name: string;
+  cards: string[];
+}
+
 export interface UserProfile {
   id: string;
   name: string;
   cardInventory: Record<string, number>;
   pveWins: number;
+  pveMatches?: number;
+  pvpMatches?: number;
+  matchHistory?: MatchHistoryEntry[];
+  savedDecks?: SavedDeck[];
 }
 
 export interface ServerToClientEvents {
@@ -96,6 +116,7 @@ export interface ClientToServerEvents {
   setReady: (ready: boolean) => void;
   setDeck: (cardIds: string[]) => void;
   selectDeck: (cardIds: string[]) => void;
+  saveDeck: (deckName: string, cardIds: string[]) => void;
   summonMonster: (cardId: string, positionIndex: number) => void;
   castSpell: (cardId: string, targetIndex?: number, isAllyTarget?: boolean) => void;
   attackBasic: (attackerIndex: number, targetIndex?: number) => void;

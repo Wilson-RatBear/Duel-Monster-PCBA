@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import { GameState, PlayerState, MonsterCard, SpellCard, ClientToServerEvents, ServerToClientEvents, MONSTERS, SPELLS, Card, getCardCareers } from '@repo/game-types';
-import { getUserProfile, addStudentProgress, addWin, loginUser, registerUser } from './user.service.js';
+import { getUserProfile, saveUserProfile, addStudentProgress, addWin, loginUser, registerUser, recordMatchResult } from './user.service.js';
 import { createInitialPlayerState as createCpuPlayerState } from './duel.service.js';
 import { validateAcademicAction } from './academic-validator.js';
 
@@ -26,38 +26,75 @@ function createInitialPlayerState(id: string, name: string, unlockedCardIds: str
 }
 
 function checkGameOver(game: GameState, p1: string, p2: string, io?: Server<ClientToServerEvents, ServerToClientEvents>, roomId?: string): boolean {
-  if (game.players[p1].hp <= 0) {
+  if (game.players[p1].hp <= 0 || game.players[p2].hp <= 0) {
+    const loser = game.players[p1].hp <= 0 ? p1 : p2;
+    const winner = loser === p1 ? p2 : p1;
+    
     game.phase = 'GAME_OVER';
-    game.winner = p2;
+    game.winner = winner;
+    
     if (io && roomId) {
-      if (roomId.startsWith('PVE-') && p2 !== 'cpu') {
-        addWin(p2).then(({ profile, unlockedCard }) => {
-          io.to(roomId).emit('profileUpdate', profile);
-          if (unlockedCard) {
-            io.to(roomId).emit('cardUnlocked', unlockedCard.id);
-          }
-        }).catch(err => {
-          console.error("Error adding win:", err);
-        });
+      const isAdventure = roomId.startsWith('PVE-');
+      const player1 = game.players[p1];
+      const player2 = game.players[p2];
+      const hp1 = player1.hp;
+      const hp2 = player2.hp;
+      
+      const promises: Promise<any>[] = [];
+      
+      if (p1 !== 'cpu') {
+        const result = winner === p1 ? 'win' : 'loss';
+        const opponentName = player2.name;
+        promises.push(
+          recordMatchResult(p1, p2, opponentName, isAdventure, result, hp1, hp2).then(profile => {
+            const { password: _, ...cleanProfile } = profile as any;
+            io.to(roomId).emit('profileUpdate', cleanProfile as any);
+          })
+        );
+        
+        if (isAdventure && result === 'win') {
+          promises.push(
+            addWin(p1).then(({ profile, unlockedCard }) => {
+              const { password: _, ...cleanProfile } = profile as any;
+              io.to(roomId).emit('profileUpdate', cleanProfile as any);
+              if (unlockedCard) {
+                io.to(roomId).emit('cardUnlocked', unlockedCard.id);
+              }
+            })
+          );
+        }
       }
-      io.to(roomId).emit('gameUpdate', game);
-    }
-    return true;
-  } else if (game.players[p2].hp <= 0) {
-    game.phase = 'GAME_OVER';
-    game.winner = p1;
-    if (io && roomId) {
-      if (roomId.startsWith('PVE-') && p1 !== 'cpu') {
-        addWin(p1).then(({ profile, unlockedCard }) => {
-          io.to(roomId).emit('profileUpdate', profile);
-          if (unlockedCard) {
-            io.to(roomId).emit('cardUnlocked', unlockedCard.id);
-          }
-        }).catch(err => {
-          console.error("Error adding win:", err);
-        });
+      
+      if (p2 !== 'cpu') {
+        const result = winner === p2 ? 'win' : 'loss';
+        const opponentName = player1.name;
+        promises.push(
+          recordMatchResult(p2, p1, opponentName, isAdventure, result, hp2, hp1).then(profile => {
+            const { password: _, ...cleanProfile } = profile as any;
+            io.to(roomId).emit('profileUpdate', cleanProfile as any);
+          })
+        );
+        
+        if (isAdventure && result === 'win') {
+          promises.push(
+            addWin(p2).then(({ profile, unlockedCard }) => {
+              const { password: _, ...cleanProfile } = profile as any;
+              io.to(roomId).emit('profileUpdate', cleanProfile as any);
+              if (unlockedCard) {
+                io.to(roomId).emit('cardUnlocked', unlockedCard.id);
+              }
+            })
+          );
+        }
       }
-      io.to(roomId).emit('gameUpdate', game);
+      
+      Promise.all(promises).catch(err => {
+        console.error("Error writing match result profiles:", err);
+      }).finally(() => {
+        io.to(roomId).emit('gameUpdate', game);
+      });
+      
+      return true;
     }
     return true;
   }
@@ -352,6 +389,30 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       
       if (game.phase === 'BATTLE' && game.turn === 'cpu') {
         handleCpuTurn(roomId);
+      }
+    });
+
+    socket.on('saveDeck', async (deckName, cardIds) => {
+      const playerId = socketToPlayerId[socket.id];
+      if (!playerId) return;
+      
+      try {
+        const profile = await getUserProfile(playerId);
+        if (!profile.savedDecks) profile.savedDecks = [];
+        
+        const existingIndex = profile.savedDecks.findIndex(d => d.name === deckName);
+        if (existingIndex !== -1) {
+          profile.savedDecks[existingIndex].cards = cardIds;
+        } else {
+          profile.savedDecks.push({ name: deckName, cards: cardIds });
+        }
+        
+        await saveUserProfile(profile);
+        const { password: _, ...cleanProfile } = profile as any;
+        socket.emit('profileUpdate', cleanProfile as any);
+      } catch (err) {
+        console.error("Error saving deck:", err);
+        socket.emit('error', 'Error al guardar el mazo.');
       }
     });
 

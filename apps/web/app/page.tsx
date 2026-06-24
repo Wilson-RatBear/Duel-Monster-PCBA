@@ -314,7 +314,14 @@ export default function GamePage() {
   const [previewCardId, setPreviewCardId] = useState<string | null>(null);
   
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [mainMenuTab, setMainMenuTab] = useState<'PLAY' | 'COLLECTION' | 'MANUAL'>('PLAY');
+  const [mainMenuTab, setMainMenuTab] = useState<'PLAY' | 'COLLECTION' | 'MANUAL' | 'PROFILE'>('PLAY');
+
+  // New features states
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showLoadModal, setShowLoadModal] = useState(false);
+  const [deckNameInput, setDeckNameInput] = useState('');
+  const [confirmDeckToLoad, setConfirmDeckToLoad] = useState<any | null>(null);
   const [showGameOver, setShowGameOver] = useState(false);
 
   // Authentication State
@@ -867,7 +874,10 @@ export default function GamePage() {
             <button onClick={() => { setMainMenuTab('COLLECTION'); if (playerId) socket?.emit('getProfile', playerId); }} className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all ${mainMenuTab === 'COLLECTION' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
               Colección
             </button>
-            <button onClick={handleLogout} className="px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all text-red-400 hover:text-red-300 hover:bg-red-950/30">
+            <button onClick={() => { setMainMenuTab('PROFILE'); if (playerId) socket?.emit('getProfile', playerId); }} className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all ${mainMenuTab === 'PROFILE' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+              Perfil
+            </button>
+            <button onClick={() => setShowLogoutConfirm(true)} className="px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all text-red-400 hover:text-red-300 hover:bg-red-950/30">
               Cerrar Sesión
             </button>
           </div>
@@ -970,6 +980,109 @@ export default function GamePage() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          ) : mainMenuTab === 'PROFILE' ? (
+            <div className="w-full bg-slate-900/80 p-6 md:p-8 rounded-3xl shadow-[0_0_40px_rgba(139,92,246,0.05)] border border-slate-700/50 backdrop-blur-sm flex flex-col min-h-[600px] mb-8 relative">
+              <button onClick={() => setMainMenuTab('PLAY')} className="absolute top-6 right-6 bg-slate-800 hover:bg-slate-700 border border-slate-600 px-4 py-2 rounded-lg font-bold text-slate-300 transition-colors">Volver</button>
+              <h2 className="text-3xl font-black text-purple-400 mb-8 uppercase tracking-widest border-b border-purple-900/50 pb-4 flex items-center">
+                <span className="text-3xl mr-3">👤</span> Perfil de Duelista
+              </h2>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-grow overflow-hidden">
+                {/* Left Panel: Stats */}
+                <div className="space-y-6 lg:border-r lg:border-slate-800 lg:pr-8">
+                  <div className="bg-slate-950/60 p-6 rounded-2xl border border-slate-800/80 flex flex-col items-center text-center shadow-inner relative overflow-hidden">
+                    <div className="w-20 h-20 bg-purple-950/40 rounded-full flex items-center justify-center mb-4 border border-purple-800/50 shadow-[0_0_15px_rgba(168,85,247,0.2)]">
+                      <span className="text-4xl">🎓</span>
+                    </div>
+                    <h3 className="text-xl font-bold text-white">{userProfile?.name || 'Estudiante'}</h3>
+                    <p className="text-xs text-slate-500 font-mono mt-1">ID: {userProfile?.id}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800/50 text-center">
+                      <span className="block text-2xl font-black text-amber-400">{userProfile?.pveWins || 0}</span>
+                      <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">Victorias Aventura</span>
+                    </div>
+                    <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800/50 text-center">
+                      <span className="block text-2xl font-black text-blue-400">{userProfile?.pveMatches || 0}</span>
+                      <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">Partidas Aventura</span>
+                    </div>
+                    <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800/50 text-center col-span-2">
+                      <span className="block text-2xl font-black text-purple-400">{userProfile?.pvpMatches || 0}</span>
+                      <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">Partidas Multijugador</span>
+                    </div>
+                  </div>
+
+                  {/* Multiplayer Opponents List */}
+                  <div className="bg-slate-950/40 p-5 rounded-2xl border border-slate-800/50">
+                    <h4 className="text-xs font-mono font-bold tracking-widest text-slate-400 uppercase mb-3">Oponentes Enfrentados</h4>
+                    <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                      {(() => {
+                        const pvpOpponents = Array.from(new Set(
+                          (userProfile?.matchHistory || [])
+                            .filter((m: any) => m.mode === 'multiplayer')
+                            .map((m: any) => m.opponentName)
+                        ));
+                        return pvpOpponents.length > 0 ? (
+                          pvpOpponents.map((oppName: any, idx) => (
+                            <span key={idx} className="px-3 py-1 bg-purple-950/30 text-purple-300 border border-purple-900/40 rounded-full text-xs font-semibold">
+                              ⚔️ {oppName}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-600 italic">No has jugado partidas multijugador aún.</span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Panel: Match History */}
+                <div className="lg:col-span-2 flex flex-col overflow-hidden h-full">
+                  <h3 className="text-lg font-bold text-slate-300 uppercase tracking-widest mb-4 flex items-center">
+                    📖 Historial de Partidas
+                  </h3>
+                  <div className="overflow-y-auto pr-2 custom-scrollbar space-y-4 max-h-[55vh]">
+                    {userProfile?.matchHistory && userProfile.matchHistory.length > 0 ? (
+                      userProfile.matchHistory.map((match: any) => {
+                        const isWin = match.result === 'win';
+                        return (
+                          <div key={match.id} className={`p-4 rounded-xl border flex items-center justify-between transition-all hover:scale-[1.01] ${isWin ? 'bg-emerald-950/10 border-emerald-900/30 shadow-[0_0_15px_rgba(16,185,129,0.02)]' : 'bg-red-950/10 border-red-900/30 shadow-[0_0_15px_rgba(239,68,68,0.02)]'}`}>
+                            <div className="flex items-center space-x-4">
+                              <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold text-sm ${isWin ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40' : 'bg-red-950/60 text-red-400 border border-red-800/40'}`}>
+                                {isWin ? 'VIC' : 'DEF'}
+                              </div>
+                              <div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm font-bold text-white">vs {match.opponentName}</span>
+                                  <span className={`text-[9px] px-2 py-0.5 rounded font-mono uppercase font-black ${match.mode === 'adventure' ? 'bg-amber-950/60 text-amber-400 border border-amber-900/30' : 'bg-blue-950/60 text-blue-400 border border-blue-900/30'}`}>
+                                    {match.mode === 'adventure' ? 'Aventura' : 'Multijugador'}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 font-mono mt-1">
+                                  {new Date(match.date).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-mono text-slate-400">Puntos de Vida</p>
+                              <p className="text-sm font-bold text-white mt-0.5">
+                                {match.myHp} LP <span className="text-slate-500 font-normal">vs</span> {match.opponentHp} LP
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-20 text-slate-500 border border-dashed border-slate-800 rounded-2xl">
+                        <span className="text-4xl mb-3">⚔️</span>
+                        <p className="font-mono text-xs uppercase tracking-widest">No hay duelos registrados</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
@@ -1321,6 +1434,23 @@ export default function GamePage() {
                   })}
                 </div>
               )}
+            </div>
+
+            {/* Save & Load Deck Controls */}
+            <div className="flex space-x-2 px-6 py-2 bg-slate-950/50 border-b border-slate-800">
+              <button 
+                onClick={() => { setDeckNameInput(''); setShowSaveModal(true); }}
+                disabled={selectedCards.length === 0}
+                className="flex-1 py-2 bg-blue-600/20 hover:bg-blue-600/35 border border-blue-500/50 text-blue-300 rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center space-x-1"
+              >
+                <span>💾 Guardar Mazo</span>
+              </button>
+              <button 
+                onClick={() => { setConfirmDeckToLoad(null); setShowLoadModal(true); }}
+                className="flex-1 py-2 bg-purple-600/20 hover:bg-purple-600/35 border border-purple-500/50 text-purple-300 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center space-x-1"
+              >
+                <span>📂 Cargar Mazo</span>
+              </button>
             </div>
 
             {/* Deck List */}
@@ -1781,6 +1911,130 @@ export default function GamePage() {
               >
                 ✕
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* New Modals */}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <motion.div initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, y: 20, opacity: 0 }} className="bg-slate-800 p-8 rounded-2xl border-2 border-red-900/50 shadow-2xl text-center max-w-sm w-full">
+              <h3 className="text-2xl font-bold mb-4 text-slate-200">¿Cerrar Sesión?</h3>
+              <p className="text-slate-400 mb-8 text-sm">¿Seguro que quieres cerrar tu sesión actual?</p>
+              <div className="flex space-x-4">
+                <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-bold transition-all cursor-pointer">No</button>
+                <button onClick={() => { setShowLogoutConfirm(false); handleLogout(); }} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 rounded-lg font-bold transition-all cursor-pointer shadow-[0_0_15px_rgba(220,38,38,0.3)]">Sí, Salir</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showSaveModal && (
+          <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <motion.div initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, y: 20, opacity: 0 }} className="bg-slate-800 p-8 rounded-2xl border border-slate-700/30 shadow-2xl text-center max-w-sm w-full">
+              <h3 className="text-2xl font-bold mb-2 text-slate-200 uppercase tracking-wider">💾 Guardar Mazo</h3>
+              <p className="text-slate-400 mb-6 text-xs">Asigna un nombre para identificar tu mazo guardado.</p>
+              <input
+                type="text"
+                required
+                maxLength={25}
+                placeholder="Nombre del Mazo"
+                value={deckNameInput}
+                onChange={(e) => setDeckNameInput(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm placeholder-slate-700 text-center font-bold text-white mb-6"
+              />
+              <div className="flex space-x-4">
+                <button onClick={() => setShowSaveModal(false)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-bold transition-all cursor-pointer text-xs uppercase tracking-widest">Cancelar</button>
+                <button 
+                  onClick={() => {
+                    if (deckNameInput.trim()) {
+                      socket?.emit('saveDeck', deckNameInput.trim(), selectedCards);
+                      setShowSaveModal(false);
+                    }
+                  }} 
+                  disabled={!deckNameInput.trim()}
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white py-3 rounded-lg font-bold transition-all cursor-pointer shadow-[0_0_15px_rgba(37,99,235,0.3)] disabled:shadow-none text-xs uppercase tracking-widest disabled:opacity-50"
+                >
+                  Guardar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showLoadModal && (
+          <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <motion.div initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, y: 20, opacity: 0 }} className="bg-slate-800 p-8 rounded-2xl border border-slate-700/30 shadow-2xl text-center max-w-md w-full max-h-[80vh] flex flex-col overflow-hidden">
+              
+              {confirmDeckToLoad ? (
+                <div className="py-4">
+                  <h3 className="text-2xl font-bold mb-4 text-slate-200 uppercase tracking-wider">🎮 ¿Confirmar Mazo?</h3>
+                  <p className="text-slate-300 mb-8 text-sm">
+                    ¿Quieres jugar con el mazo <strong className="text-purple-400">"{confirmDeckToLoad.name}"</strong>? ({confirmDeckToLoad.cards.length} cartas)
+                  </p>
+                  <div className="flex space-x-4">
+                    <button 
+                      onClick={() => setConfirmDeckToLoad(null)} 
+                      className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-bold transition-all cursor-pointer text-xs uppercase tracking-widest"
+                    >
+                      No, Volver
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setSelectedCards(confirmDeckToLoad.cards);
+                        socket?.emit('selectDeck', confirmDeckToLoad.cards);
+                        setShowLoadModal(false);
+                        setConfirmDeckToLoad(null);
+                      }} 
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg font-bold transition-all cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] text-xs uppercase tracking-widest"
+                    >
+                      Sí, Jugar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h3 className="text-2xl font-bold mb-2 text-slate-200 uppercase tracking-wider flex items-center justify-center space-x-2">
+                    <span>📂 Cargar Mazo</span>
+                  </h3>
+                  <p className="text-slate-400 mb-6 text-xs">Selecciona uno de tus mazos guardados anteriormente.</p>
+                  
+                  <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-3 mb-6 min-h-[150px]">
+                    {userProfile?.savedDecks && userProfile.savedDecks.length > 0 ? (
+                      userProfile.savedDecks.map((deck: any, idx: number) => (
+                        <div 
+                          key={idx} 
+                          onClick={() => setConfirmDeckToLoad(deck)}
+                          className="p-4 bg-slate-900/60 border border-slate-700/40 rounded-xl flex items-center justify-between hover:bg-purple-950/20 hover:border-purple-500/40 transition-all cursor-pointer group"
+                        >
+                          <div className="text-left">
+                            <h4 className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors">{deck.name}</h4>
+                            <p className="text-[10px] text-slate-500 font-mono mt-0.5">{deck.cards.length} cartas</p>
+                          </div>
+                          <span className="text-slate-500 group-hover:text-purple-400 transition-colors text-lg">➔</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-10 text-slate-600 italic border border-dashed border-slate-700/50 rounded-xl">
+                        <span>No tienes mazos registrados.</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <button 
+                    onClick={() => setShowLoadModal(false)} 
+                    className="w-full bg-slate-700 hover:bg-slate-600 text-white py-3.5 rounded-lg font-bold transition-all cursor-pointer text-xs uppercase tracking-widest"
+                  >
+                    Salir y construir manualmente
+                  </button>
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}
