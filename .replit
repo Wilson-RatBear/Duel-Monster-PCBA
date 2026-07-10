@@ -1,5 +1,5 @@
-run = "pnpm --filter server dev"
+run = "npx pnpm --filter server dev"
 
 [deployment]
-run = ["pnpm", "--filter", "server", "start"]
-build = ["sh", "-c", "pnpm install --frozen-lockfile && pnpm turbo run build --filter=server"]
+run = ["npx", "pnpm", "--filter", "server", "start"]
+build = ["sh", "-c", "npx pnpm install --frozen-lockfile && npx pnpm turbo run build --filter=server"]
