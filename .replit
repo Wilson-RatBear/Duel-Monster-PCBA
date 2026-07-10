@@ -2,4 +2,4 @@ run = "npx pnpm@7 --filter server dev"
 
 [deployment]
 run = ["npx", "pnpm@7", "--filter", "server", "start"]
-build = ["sh", "-c", "npx pnpm@7 install --frozen-lockfile && npx pnpm@7 turbo run build --filter=server"]
+build = ["sh", "-c", "npx pnpm@7 install --no-frozen-lockfile && npx pnpm@7 turbo run build --filter=server"]
