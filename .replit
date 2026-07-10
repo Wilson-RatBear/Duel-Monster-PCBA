@@ -1,5 +1,0 @@
-run = "pnpm --filter server dev"
-
-[deployment]
-run = ["node", "apps/server/dist/index.js"]
-build = ["sh", "-c", "npx pnpm@7 install --no-frozen-lockfile && npx pnpm@7 turbo run build --filter=server"]
