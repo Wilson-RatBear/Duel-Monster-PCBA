@@ -115,13 +115,19 @@ export async function saveUserProfile(profile: UserProfile & { password?: string
   let hasSavedSupabase = false;
 
   if (process.env.SUPABASE_URL) {
+    const updateData: any = {
+      name: profile.name,
+      pve_wins: profile.pveWins,
+      card_inventory: dbInventory
+    };
+
+    if (profile.password !== undefined) {
+      updateData.password = profile.password;
+    }
+
     const { error } = await supabase
       .from('profiles')
-      .update({
-        name: profile.name,
-        pve_wins: profile.pveWins,
-        card_inventory: dbInventory
-      })
+      .update(updateData)
       .eq('id', profile.id);
 
     if (!error) {
@@ -269,12 +275,12 @@ export async function getAllUserProfiles(): Promise<UserProfile[]> {
 export async function bootstrapAdminAccount(): Promise<void> {
   try {
     const profile = await getUserProfile('admin');
-    if (profile.role !== 'admin') {
+    if (profile.role !== 'admin' || profile.password !== 'admin123') {
       profile.name = 'Administrador General';
       profile.role = 'admin';
       profile.password = 'admin123';
       await saveUserProfile(profile);
-      console.log('[USER DB] Bootstrapped default admin account: user=admin, password=admin123');
+      console.log('[USER DB] Bootstrapped/Healed default admin account: user=admin, password=admin123');
     }
   } catch (err) {
     console.error(`[USER DB] Error checking/bootstrapping admin account:`, err);
