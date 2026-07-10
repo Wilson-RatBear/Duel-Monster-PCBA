@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import { GameState, PlayerState, MonsterCard, SpellCard, ClientToServerEvents, ServerToClientEvents, MONSTERS, SPELLS, Card, getCardCareers, UserProfile } from '@repo/game-types';
-import { getUserProfile, saveUserProfile, addStudentProgress, addWin, loginUser, registerUser, recordMatchResult, bootstrapAdminAccount, deleteUserProfile, getAllUserProfiles } from './user.service.js';
+import { getUserProfile, saveUserProfile, addStudentProgress, addWin, loginUser, registerUser, recordMatchResult, bootstrapTeacherAccount, deleteUserProfile, getAllUserProfiles } from './user.service.js';
 import { createInitialPlayerState as createCpuPlayerState } from './duel.service.js';
 import { validateAcademicAction } from './academic-validator.js';
 
@@ -142,7 +142,7 @@ function updateDominantTheme(game: GameState) {
 }
 
 export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientEvents>) {
-  bootstrapAdminAccount();
+  bootstrapTeacherAccount();
 
   io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
@@ -1076,129 +1076,6 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       } catch (err) {
         console.error("Error adding teacher note:", err);
         socket.emit('error', 'Error al agregar la nota.');
-      }
-    });
-
-    socket.on('adminGetDashboardData', async () => {
-      const adminId = socketToPlayerId[socket.id];
-      if (!adminId) return;
-
-      try {
-        const adminProfile = await getUserProfile(adminId);
-        if (adminProfile.role !== 'admin') {
-          socket.emit('error', 'No tienes permiso para acceder al panel de administración.');
-          return;
-        }
-
-        const allProfiles = await getAllUserProfiles();
-        socket.emit('adminDashboardData', { users: allProfiles });
-      } catch (err) {
-        console.error("Error fetching admin dashboard data:", err);
-        socket.emit('error', 'Error al obtener datos del panel.');
-      }
-    });
-
-    socket.on('adminCreateTeacher', async (username, password, displayName) => {
-      const adminId = socketToPlayerId[socket.id];
-      if (!adminId) return;
-
-      try {
-        const adminProfile = await getUserProfile(adminId);
-        if (adminProfile.role !== 'admin') {
-          socket.emit('error', 'No tienes permiso para crear cuentas.');
-          return;
-        }
-
-        const cleanUsername = username.trim().toLowerCase().replace(/[^a-zA-Z0-9-]/g, '');
-        if (!cleanUsername) {
-          socket.emit('error', 'Nombre de usuario inválido.');
-          return;
-        }
-
-        const existing = await getUserProfile(cleanUsername);
-        if (existing && existing.name !== 'Estudiante') {
-          socket.emit('error', 'El usuario ya existe.');
-          return;
-        }
-
-        const profile: UserProfile & { password?: string } = {
-          id: cleanUsername,
-          name: displayName.trim() || username,
-          password: password,
-          pveWins: 0,
-          cardInventory: {},
-          pveMatches: 0,
-          pvpMatches: 0,
-          matchHistory: [],
-          savedDecks: [],
-          role: 'teacher',
-          blocked: false,
-          visitedStudents: [],
-          notesLeft: [],
-          teacherNotes: []
-        };
-
-        await saveUserProfile(profile);
-
-        const allProfiles = await getAllUserProfiles();
-        socket.emit('adminDashboardData', { users: allProfiles });
-      } catch (err) {
-        console.error("Error creating teacher account:", err);
-        socket.emit('error', 'Error al crear la cuenta de docente.');
-      }
-    });
-
-    socket.on('adminDeleteUser', async (userId) => {
-      const adminId = socketToPlayerId[socket.id];
-      if (!adminId) return;
-
-      try {
-        const adminProfile = await getUserProfile(adminId);
-        if (adminProfile.role !== 'admin') {
-          socket.emit('error', 'No tienes permiso para eliminar usuarios.');
-          return;
-        }
-
-        if (userId === 'admin') {
-          socket.emit('error', 'No se puede eliminar la cuenta administradora principal.');
-          return;
-        }
-
-        await deleteUserProfile(userId);
-
-        const allProfiles = await getAllUserProfiles();
-        socket.emit('adminDashboardData', { users: allProfiles });
-      } catch (err) {
-        console.error("Error deleting user:", err);
-        socket.emit('error', 'Error al eliminar el usuario.');
-      }
-    });
-
-    socket.on('adminToggleBlockUser', async (userId) => {
-      const adminId = socketToPlayerId[socket.id];
-      if (!adminId) return;
-
-      try {
-        const adminProfile = await getUserProfile(adminId);
-        if (adminProfile.role !== 'admin') {
-          socket.emit('error', 'No tienes permiso para bloquear usuarios.');
-          return;
-        }
-
-        if (userId === 'admin') {
-          socket.emit('error', 'No se puede bloquear la cuenta administradora principal.');
-          return;
-        }
-
-        const targetProfile = await getUserProfile(userId);
-        targetProfile.blocked = !targetProfile.blocked;
-        await saveUserProfile(targetProfile);
-
-        const allProfiles = await getAllUserProfiles();
-        socket.emit('adminDashboardData', { users: allProfiles });
-      } catch (err) {
-        console.error("Error toggling user block:", err);
-        socket.emit('error', 'Error al cambiar el estado de bloqueo.');
       }
     });
 

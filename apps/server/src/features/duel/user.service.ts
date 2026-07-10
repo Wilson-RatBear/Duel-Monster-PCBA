@@ -272,18 +272,18 @@ export async function getAllUserProfiles(): Promise<UserProfile[]> {
   }
 }
 
-export async function bootstrapAdminAccount(): Promise<void> {
+export async function bootstrapTeacherAccount(): Promise<void> {
   try {
-    const profile = await getUserProfile('admin');
-    if (profile.role !== 'admin' || profile.password !== 'admin123') {
-      profile.name = 'Administrador General';
-      profile.role = 'admin';
-      profile.password = 'admin123';
+    const profile = await getUserProfile('docente');
+    if (profile.role !== 'teacher' || profile.password !== 'docente123') {
+      profile.name = 'Docente de Ejemplo';
+      profile.role = 'teacher';
+      profile.password = 'docente123';
       await saveUserProfile(profile);
-      console.log('[USER DB] Bootstrapped/Healed default admin account: user=admin, password=admin123');
+      console.log('[USER DB] Bootstrapped/Healed default teacher account: user=docente, password=docente123');
     }
   } catch (err) {
-    console.error(`[USER DB] Error checking/bootstrapping admin account:`, err);
+    console.error(`[USER DB] Error checking/bootstrapping teacher account:`, err);
   }
 }
 
