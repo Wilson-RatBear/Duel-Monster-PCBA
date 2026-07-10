@@ -153,12 +153,8 @@ export interface ClientToServerEvents {
   executeAttacks: () => void;
   login: (username: string, password: string) => void;
   register: (username: string, password: string, displayName: string) => void;
-  adminGetDashboardData: () => void;
-  adminCreateTeacher: (username: string, password: string, displayName: string) => void;
-  adminDeleteUser: (userId: string) => void;
-  adminToggleBlockUser: (userId: string) => void;
   teacherSearchStudent: (studentId: string) => void;
-  teacherAddNote: (studentId: string, content: string) => void;
+  teacherAddNote: (studentId: string, content: string, score: number, recommendation: string) => void;
 }
 
 export const MONSTERS: MonsterCard[] = [

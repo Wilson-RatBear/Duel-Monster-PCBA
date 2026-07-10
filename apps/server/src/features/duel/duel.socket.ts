@@ -1036,7 +1036,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       }
     });
 
-    socket.on('teacherAddNote', async (studentId, content) => {
+    socket.on('teacherAddNote', async (studentId: string, content: string, score: number, recommendation: string) => {
       const teacherId = socketToPlayerId[socket.id];
       if (!teacherId) return;
 
@@ -1060,6 +1060,8 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
           teacherId: teacherProfile.id,
           teacherName: teacherProfile.name,
           content: content.trim(),
+          score: typeof score === 'number' ? score : Number(score) || null,
+          recommendation: typeof recommendation === 'string' ? recommendation.trim() : '',
           date: new Date().toISOString()
         };
 

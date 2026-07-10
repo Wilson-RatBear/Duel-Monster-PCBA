@@ -328,6 +328,8 @@ export default function GamePage() {
   const [teacherSearchError, setTeacherSearchError] = useState<string | null>(null);
   const [teacherSearchInput, setTeacherSearchInput] = useState('');
   const [teacherNoteInput, setTeacherNoteInput] = useState('');
+  const [teacherScoreInput, setTeacherScoreInput] = useState<number>(10);
+  const [teacherRecommendationInput, setTeacherRecommendationInput] = useState('');
   const [showGameOver, setShowGameOver] = useState(false);
 
   // Authentication State
@@ -641,8 +643,16 @@ export default function GamePage() {
     
     const handleSaveNote = () => {
       if (teacherNoteInput.trim() && teacherStudentProfile) {
-        socket?.emit('teacherAddNote', teacherStudentProfile.id, teacherNoteInput.trim());
+        socket?.emit(
+          'teacherAddNote',
+          teacherStudentProfile.id,
+          teacherNoteInput.trim(),
+          teacherScoreInput,
+          teacherRecommendationInput.trim()
+        );
         setTeacherNoteInput('');
+        setTeacherRecommendationInput('');
+        setTeacherScoreInput(10);
       }
     };
     
@@ -848,13 +858,43 @@ export default function GamePage() {
                       {/* Editor Note */}
                       <div className="bg-slate-950/40 border border-slate-800/80 p-5 rounded-2xl space-y-4">
                         <h4 className="text-xs font-mono font-bold tracking-widest text-slate-400 uppercase">Agregar Nota Pedagógica</h4>
-                        <textarea
-                          placeholder="Escribe comentarios, observaciones académicas o notas sobre el progreso del alumno..."
-                          value={teacherNoteInput}
-                          onChange={(e) => setTeacherNoteInput(e.target.value)}
-                          maxLength={300}
-                          className="w-full h-24 bg-slate-950 border border-slate-800 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm text-white placeholder-slate-700 resize-none"
-                        />
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="md:col-span-2">
+                            <label className="block text-[10px] font-mono tracking-widest text-slate-500 uppercase mb-1">Recomendación Académica</label>
+                            <input
+                              type="text"
+                              placeholder="Ej: Estudiar conceptos de petroquímica..."
+                              value={teacherRecommendationInput}
+                              onChange={(e) => setTeacherRecommendationInput(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm text-white placeholder-slate-700"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-mono tracking-widest text-slate-500 uppercase mb-1">Puntuar Desempeño</label>
+                            <select
+                              value={teacherScoreInput}
+                              onChange={(e) => setTeacherScoreInput(Number(e.target.value))}
+                              className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm text-white font-bold"
+                            >
+                              {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(score => (
+                                <option key={score} value={score}>{score}/10 {score >= 8 ? '🌟' : score >= 6 ? '👍' : '⚠️'}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-mono tracking-widest text-slate-500 uppercase mb-1">Comentarios y Observaciones</label>
+                          <textarea
+                            placeholder="Escribe comentarios, observaciones académicas o notas sobre el progreso del alumno..."
+                            value={teacherNoteInput}
+                            onChange={(e) => setTeacherNoteInput(e.target.value)}
+                            maxLength={300}
+                            className="w-full h-24 bg-slate-950 border border-slate-800 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm text-white placeholder-slate-700 resize-none"
+                          />
+                        </div>
+
                         <div className="flex justify-between items-center">
                           <span className="text-[10px] text-slate-600 font-mono">{300 - teacherNoteInput.length} caracteres disponibles</span>
                           <button onClick={handleSaveNote} disabled={!teacherNoteInput.trim()} className="bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer">
@@ -868,12 +908,30 @@ export default function GamePage() {
                         <h4 className="text-xs font-mono font-bold tracking-widest text-slate-400 uppercase">Historial de Anotaciones</h4>
                         {teacherStudentProfile.teacherNotes && teacherStudentProfile.teacherNotes.length > 0 ? (
                           teacherStudentProfile.teacherNotes.map((note: any) => (
-                            <div key={note.id} className="p-4 bg-slate-950/60 border border-slate-900 rounded-xl space-y-2 relative">
+                            <div key={note.id} className="p-4 bg-slate-950/60 border border-slate-900 rounded-xl space-y-3 relative text-left">
                               <div className="flex justify-between items-start">
-                                <span className="text-xs font-bold text-purple-300">Docente: {note.teacherName}</span>
-                                <span className="text-[9px] text-slate-500 font-mono">{new Date(note.date).toLocaleString()}</span>
+                                <div>
+                                  <span className="text-xs font-bold text-purple-300">Docente: {note.teacherName}</span>
+                                  <span className="text-[9px] text-slate-500 font-mono block mt-0.5">{new Date(note.date).toLocaleString()}</span>
+                                </div>
+                                {note.score !== undefined && note.score !== null && (
+                                  <div className={`px-3 py-1 rounded-lg text-xs font-black border flex items-center space-x-1 ${note.score >= 8 ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900/30' : note.score >= 6 ? 'bg-amber-950/40 text-amber-400 border-amber-900/30' : 'bg-red-950/40 text-red-400 border-red-900/30'}`}>
+                                    <span>Puntaje: {note.score}/10</span>
+                                  </div>
+                                )}
                               </div>
-                              <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                              
+                              <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/50 p-3 rounded-lg border border-slate-800/60">
+                                <span className="block text-[9px] font-mono text-slate-500 uppercase tracking-widest mb-1.5">Comentarios:</span>
+                                <span className="whitespace-pre-wrap">{note.content}</span>
+                              </p>
+
+                              {note.recommendation && (
+                                <div className="text-xs text-slate-300 leading-relaxed bg-purple-950/10 p-3 rounded-lg border border-purple-900/20">
+                                  <span className="block text-[9px] font-mono text-purple-400 uppercase tracking-widest mb-1.5">Recomendación Académica:</span>
+                                  <span className="italic text-purple-200">"{note.recommendation}"</span>
+                                </div>
+                              )}
                             </div>
                           ))
                         ) : (
