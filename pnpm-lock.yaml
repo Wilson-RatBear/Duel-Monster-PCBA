@@ -116,14 +116,7 @@ importers:
         specifier: ^5
         version: 5.9.2
 
-  packages/game-types:
-    devDependencies:
-      '@repo/typescript-config':
-        specifier: workspace:*
-        version: link:../typescript-config
-      typescript:
-        specifier: ^5
-        version: 5.9.2
+  packages/game-types: {}
 
   packages/typescript-config: {}
 
