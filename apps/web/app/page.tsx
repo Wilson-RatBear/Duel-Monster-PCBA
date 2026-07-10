@@ -335,7 +335,6 @@ export default function GamePage() {
   const [adminCreateTeacherUsername, setAdminCreateTeacherUsername] = useState('');
   const [adminCreateTeacherPassword, setAdminCreateTeacherPassword] = useState('');
   const [adminCreateTeacherName, setAdminCreateTeacherName] = useState('');
-  const [adminCardEditorUser, setAdminCardEditorUser] = useState<UserProfile | null>(null);
   const [showGameOver, setShowGameOver] = useState(false);
 
   // Authentication State
@@ -1082,14 +1081,6 @@ export default function GamePage() {
                             </span>
                           </td>
                           <td className="py-3.5 pr-3 text-right space-x-1.5">
-                            {user.role === 'student' && (
-                              <button 
-                                onClick={() => setAdminCardEditorUser(user)}
-                                className="bg-amber-600/20 hover:bg-amber-600 border border-amber-500/50 text-amber-300 hover:text-white px-2.5 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer"
-                              >
-                                Cartas
-                              </button>
-                            )}
                             {user.id !== 'admin' && (
                               <>
                                 <button 
@@ -1367,62 +1358,7 @@ export default function GamePage() {
           )}
         </main>
 
-        {/* Card Editor Modal */}
-        <AnimatePresence>
-          {adminCardEditorUser && (
-            <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
-              <motion.div initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, y: 20, opacity: 0 }} className="bg-slate-800 border border-slate-700/50 p-6 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
-                <div className="flex justify-between items-center border-b border-slate-700 pb-3 mb-4 text-left">
-                  <div>
-                    <h3 className="text-xl font-black text-white uppercase tracking-wider">📦 Editar Inventario</h3>
-                    <p className="text-xs text-slate-400 font-mono mt-0.5">Usuario: {adminCardEditorUser.name} (@{adminCardEditorUser.id})</p>
-                  </div>
-                  <button onClick={() => setAdminCardEditorUser(null)} className="text-slate-400 hover:text-white transition-colors text-lg font-bold">✕</button>
-                </div>
 
-                <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar grid grid-cols-2 sm:grid-cols-3 gap-4 pb-4">
-                  {allCards.map(card => {
-                    const currentCount = adminUsersList.find(u => u.id === adminCardEditorUser.id)?.cardInventory?.[card.id] || 0;
-                    return (
-                      <div key={card.id} className="p-3 bg-slate-950/50 border border-slate-700/40 rounded-2xl flex items-center justify-between text-left">
-                        <div className="flex-grow overflow-hidden pr-2">
-                          <h4 className="text-xs font-bold text-slate-200 truncate">{card.name}</h4>
-                          <p className="text-[8px] font-mono text-slate-500 uppercase mt-0.5">{card.type} • {card.id}</p>
-                          <p className="text-[10px] font-bold text-blue-400 font-mono mt-1">Copias: {currentCount}</p>
-                        </div>
-                        <div className="flex flex-col gap-1 flex-shrink-0">
-                          <button 
-                            onClick={() => socket?.emit('adminModifyUserCards', adminCardEditorUser.id, card.id, 1)}
-                            className="bg-blue-600 hover:bg-blue-500 text-white w-6 h-6 rounded flex items-center justify-center font-bold text-xs cursor-pointer"
-                          >
-                            +
-                          </button>
-                          <button 
-                            onClick={() => {
-                              if (currentCount > 0) {
-                                socket?.emit('adminModifyUserCards', adminCardEditorUser.id, card.id, -1);
-                              }
-                            }}
-                            disabled={currentCount === 0}
-                            className="bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-white w-6 h-6 rounded flex items-center justify-center font-bold text-xs cursor-pointer"
-                          >
-                            -
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="border-t border-slate-700 pt-4 flex justify-end">
-                  <button onClick={() => setAdminCardEditorUser(null)} className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest cursor-pointer">
-                    Cerrar
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     );
   };
@@ -1503,18 +1439,6 @@ export default function GamePage() {
           <div className="flex items-center space-x-6">
             <button onClick={toggleThemeMode} className="p-2 border border-slate-800/40 hover:bg-slate-800/30 rounded-full text-sm cursor-pointer transition-all flex items-center justify-center">
               {isLightMode ? '🌙' : '☀️'}
-            </button>
-            <button 
-              onClick={() => { setAuthMode('LOGIN'); setAuthErrorMsg(null); }}
-              className="text-xs font-mono uppercase tracking-widest text-slate-400 hover:text-white transition-colors cursor-pointer"
-            >
-              Entrar
-            </button>
-            <button 
-              onClick={() => { setAuthMode('REGISTER'); setAuthErrorMsg(null); }}
-              className="text-xs font-mono uppercase tracking-widest px-4 py-2 border border-slate-700/60 rounded-full hover:bg-slate-900/50 hover:border-slate-400 transition-all cursor-pointer"
-            >
-              Registrarse
             </button>
           </div>
         </header>

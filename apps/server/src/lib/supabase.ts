@@ -11,4 +11,6 @@ if (!supabaseKey) {
   console.warn('[SUPABASE] Warning: SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY is not defined in environment variables.');
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseKey || '');
+export const supabase = (supabaseUrl && supabaseKey) 
+  ? createClient(supabaseUrl, supabaseKey) 
+  : null as any;

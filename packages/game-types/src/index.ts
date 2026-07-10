@@ -157,7 +157,6 @@ export interface ClientToServerEvents {
   adminCreateTeacher: (username: string, password: string, displayName: string) => void;
   adminDeleteUser: (userId: string) => void;
   adminToggleBlockUser: (userId: string) => void;
-  adminModifyUserCards: (userId: string, cardId: string, amount: number) => void;
   teacherSearchStudent: (studentId: string) => void;
   teacherAddNote: (studentId: string, content: string) => void;
 }

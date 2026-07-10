@@ -1202,37 +1202,6 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
       }
     });
 
-    socket.on('adminModifyUserCards', async (userId, cardId, amount) => {
-      const adminId = socketToPlayerId[socket.id];
-      if (!adminId) return;
-
-      try {
-        const adminProfile = await getUserProfile(adminId);
-        if (adminProfile.role !== 'admin') {
-          socket.emit('error', 'No tienes permiso para modificar inventarios.');
-          return;
-        }
-
-        const targetProfile = await getUserProfile(userId);
-        if (!targetProfile.cardInventory) targetProfile.cardInventory = {};
-        
-        const currentVal = targetProfile.cardInventory[cardId] || 0;
-        const newVal = Math.max(0, currentVal + amount);
-        if (newVal === 0) {
-          delete targetProfile.cardInventory[cardId];
-        } else {
-          targetProfile.cardInventory[cardId] = newVal;
-        }
-
-        await saveUserProfile(targetProfile);
-
-        const allProfiles = await getAllUserProfiles();
-        socket.emit('adminDashboardData', { users: allProfiles });
-      } catch (err) {
-        console.error("Error modifying cards:", err);
-        socket.emit('error', 'Error al modificar las cartas del usuario.');
-      }
-    });
 
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.id}`);
