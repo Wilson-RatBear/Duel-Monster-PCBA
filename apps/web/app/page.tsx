@@ -906,6 +906,21 @@ export default function GamePage() {
             )}
           </div>
         </main>
+
+        <AnimatePresence>
+          {showLogoutConfirm && (
+            <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+              <motion.div initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, y: 20, opacity: 0 }} className="bg-slate-800 p-8 rounded-2xl border-2 border-red-900/50 shadow-2xl text-center max-w-sm w-full">
+                <h3 className="text-2xl font-bold mb-4 text-slate-200">¿Cerrar Sesión?</h3>
+                <p className="text-slate-400 mb-8 text-sm">¿Seguro que quieres cerrar tu sesión actual?</p>
+                <div className="flex space-x-4">
+                  <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-bold transition-all cursor-pointer">No</button>
+                  <button onClick={() => { setShowLogoutConfirm(false); handleLogout(); }} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 rounded-lg font-bold transition-all cursor-pointer shadow-[0_0_15px_rgba(220,38,38,0.3)]">Sí, Salir</button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   };
@@ -1358,7 +1373,20 @@ export default function GamePage() {
           )}
         </main>
 
-
+        <AnimatePresence>
+          {showLogoutConfirm && (
+            <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+              <motion.div initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, y: 20, opacity: 0 }} className="bg-slate-800 p-8 rounded-2xl border-2 border-red-900/50 shadow-2xl text-center max-w-sm w-full">
+                <h3 className="text-2xl font-bold mb-4 text-slate-200">¿Cerrar Sesión?</h3>
+                <p className="text-slate-400 mb-8 text-sm">¿Seguro que quieres cerrar tu sesión actual?</p>
+                <div className="flex space-x-4">
+                  <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-bold transition-all cursor-pointer">No</button>
+                  <button onClick={() => { setShowLogoutConfirm(false); handleLogout(); }} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 rounded-lg font-bold transition-all cursor-pointer shadow-[0_0_15px_rgba(220,38,38,0.3)]">Sí, Salir</button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   };
@@ -2329,6 +2357,114 @@ export default function GamePage() {
                   <button onClick={() => setShowExitConfirm(false)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-bold transition-all cursor-pointer">No</button>
                   <button onClick={() => { setShowExitConfirm(false); clearSession(); }} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 rounded-lg font-bold transition-all cursor-pointer shadow-[0_0_15px_rgba(220,38,38,0.3)]">Sí, Salir</button>
                 </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showSaveModal && (
+            <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+              <motion.div initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, y: 20, opacity: 0 }} className="bg-slate-800 p-8 rounded-2xl border border-slate-700/30 shadow-2xl text-center max-w-sm w-full">
+                <h3 className="text-2xl font-bold mb-2 text-slate-200 uppercase tracking-wider">💾 Guardar Mazo</h3>
+                <p className="text-slate-400 mb-6 text-xs">Asigna un nombre para identificar tu mazo guardado.</p>
+                <input
+                  type="text"
+                  required
+                  maxLength={25}
+                  placeholder="Nombre del Mazo"
+                  value={deckNameInput}
+                  onChange={(e) => setDeckNameInput(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm placeholder-slate-700 text-center font-bold text-white mb-6"
+                />
+                <div className="flex space-x-4">
+                  <button onClick={() => setShowSaveModal(false)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-bold transition-all cursor-pointer text-xs uppercase tracking-widest">Cancelar</button>
+                  <button 
+                    onClick={() => {
+                      if (deckNameInput.trim()) {
+                        socket?.emit('saveDeck', deckNameInput.trim(), selectedCards);
+                        setShowSaveModal(false);
+                      }
+                    }} 
+                    disabled={!deckNameInput.trim()}
+                    className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white py-3 rounded-lg font-bold transition-all cursor-pointer shadow-[0_0_15px_rgba(37,99,235,0.3)] disabled:shadow-none text-xs uppercase tracking-widest disabled:opacity-50"
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showLoadModal && (
+            <motion.div initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(8px)' }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+              <motion.div initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, y: 20, opacity: 0 }} className="bg-slate-800 p-8 rounded-2xl border border-slate-700/30 shadow-2xl text-center max-w-md w-full max-h-[80vh] flex flex-col overflow-hidden">
+                
+                {confirmDeckToLoad ? (
+                  <div className="py-4">
+                    <h3 className="text-2xl font-bold mb-4 text-slate-200 uppercase tracking-wider">🎮 ¿Confirmar Mazo?</h3>
+                    <p className="text-slate-300 mb-8 text-sm">
+                      ¿Quieres jugar con el mazo <strong className="text-purple-400">"{confirmDeckToLoad.name}"</strong>? ({confirmDeckToLoad.cards.length} cartas)
+                    </p>
+                    <div className="flex space-x-4">
+                      <button 
+                        onClick={() => setConfirmDeckToLoad(null)} 
+                        className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-bold transition-all cursor-pointer text-xs uppercase tracking-widest"
+                      >
+                        No, Volver
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setSelectedCards(confirmDeckToLoad.cards);
+                          socket?.emit('selectDeck', confirmDeckToLoad.cards);
+                          setShowLoadModal(false);
+                          setConfirmDeckToLoad(null);
+                        }} 
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg font-bold transition-all cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] text-xs uppercase tracking-widest"
+                      >
+                        Sí, Jugar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <h3 className="text-2xl font-bold mb-2 text-slate-200 uppercase tracking-wider flex items-center justify-center space-x-2">
+                      <span>📂 Cargar Mazo</span>
+                    </h3>
+                    <p className="text-slate-400 mb-6 text-xs">Selecciona uno de tus mazos guardados anteriormente.</p>
+                    
+                    <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-3 mb-6 min-h-[150px]">
+                      {userProfile?.savedDecks && userProfile.savedDecks.length > 0 ? (
+                        userProfile.savedDecks.map((deck: any, idx: number) => (
+                          <div 
+                            key={idx} 
+                            onClick={() => setConfirmDeckToLoad(deck)}
+                            className="p-4 bg-slate-900/60 border border-slate-700/40 rounded-xl flex items-center justify-between hover:bg-purple-950/20 hover:border-purple-500/40 transition-all cursor-pointer group"
+                          >
+                            <div className="text-left">
+                              <h4 className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors">{deck.name}</h4>
+                              <p className="text-[10px] text-slate-500 font-mono mt-0.5">{deck.cards.length} cartas</p>
+                            </div>
+                            <span className="text-slate-500 group-hover:text-purple-400 transition-colors text-lg">➔</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-10 text-slate-600 italic border border-dashed border-slate-700/50 rounded-xl">
+                          <span>No tienes mazos registrados.</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button 
+                      onClick={() => setShowLoadModal(false)} 
+                      className="w-full bg-slate-700 hover:bg-slate-600 text-white py-3.5 rounded-lg font-bold transition-all cursor-pointer text-xs uppercase tracking-widest"
+                    >
+                      Salir y construir manualmente
+                    </button>
+                  </>
+                )}
               </motion.div>
             </motion.div>
           )}
