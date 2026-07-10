@@ -1,0 +1,5 @@
+run = "pnpm --filter server dev"
+
+[deployment]
+run = ["pnpm", "--filter", "server", "start"]
+build = ["pnpm", "run", "build"]
