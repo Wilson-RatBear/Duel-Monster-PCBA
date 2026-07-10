@@ -2,4 +2,4 @@ run = "pnpm --filter server dev"
 
 [deployment]
 run = ["pnpm", "--filter", "server", "start"]
-build = ["pnpm", "run", "build"]
+build = ["sh", "-c", "pnpm install --frozen-lockfile && pnpm turbo run build --filter=server"]
