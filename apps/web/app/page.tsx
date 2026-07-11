@@ -321,6 +321,27 @@ function GamePage() {
   const [activeDeckTab, setActiveDeckTab] = useState<'CATALOG' | 'DECK'>('CATALOG');
   const [showMobileLog, setShowMobileLog] = useState(false);
 
+  const touchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartRef = useRef<number>(0);
+  const isLongPressRef = useRef<boolean>(false);
+
+  const startTouchPreview = (cardId: string) => {
+    touchStartRef.current = Date.now();
+    isLongPressRef.current = false;
+    if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
+    touchTimeoutRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      setPreviewCardId(cardId);
+    }, 500);
+  };
+
+  const endTouchPreview = () => {
+    if (touchTimeoutRef.current) {
+      clearTimeout(touchTimeoutRef.current);
+      touchTimeoutRef.current = null;
+    }
+  };
+
 
   // New features states
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -434,7 +455,7 @@ function GamePage() {
       setAnimatingCard({ id: data.attackerId || data.spellId || '', type: data.type, targetId: data.targetId, damage: data.damage, secondaryTargetId: data.secondaryTargetId, secondaryDamage: data.secondaryDamage });
       setTimeout(() => {
         setAnimatingCard(null);
-      }, data.type === 'SPELL_EFFECT' ? 1500 : 800);
+      }, 1500);
     });
 
     const savedRoom = localStorage.getItem('duel_monster_room_id');
@@ -1334,7 +1355,7 @@ function GamePage() {
               </div>
             </div>
           ) : mainMenuTab === 'COLLECTION' ? (
-            <div className="w-full bg-slate-900/80 p-6 md:p-8 rounded-3xl shadow-[0_0_40px_rgba(245,158,11,0.05)] border border-slate-700/50 backdrop-blur-sm flex flex-col min-h-[600px] mb-8">
+            <div className="w-full bg-slate-900/80 p-4 sm:p-8 rounded-3xl shadow-[0_0_40px_rgba(245,158,11,0.05)] border border-slate-700/50 backdrop-blur-sm flex flex-col min-h-[600px] mb-8">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-black text-amber-400 uppercase tracking-widest drop-shadow-lg flex items-center space-x-3">
                   <img src="/symbols/concepto.png" className="w-6 h-6 object-contain inline-block mr-2" alt="" />
@@ -1344,19 +1365,19 @@ function GamePage() {
                   Cartas Obtenidas: <span className="text-amber-400 font-bold">{Object.values(userProfile?.cardInventory || {}).filter(c => c > 0).length}</span> / {allCards.length}
                 </div>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 overflow-y-auto pr-2 custom-scrollbar pb-12" style={{ maxHeight: '60vh' }}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6 overflow-y-auto pr-2 custom-scrollbar pb-12" style={{ maxHeight: '60vh' }}>
                 {allCards.map(card => {
                   const hasCard = (userProfile?.cardInventory?.[card.id] || 0) > 0;
                   return (
                     <div key={card.id} className="relative flex flex-col items-center">
                       {hasCard ? (
-                        <div className="w-36 h-52 relative">
+                        <div className="w-28 h-40 min-[380px]:w-36 min-[380px]:h-52 relative">
                           <GameCardContent card={card} onPreview={() => setPreviewCardId(card.id)} />
                         </div>
                       ) : (
-                        <div className="w-36 h-52 bg-slate-950 border-2 border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center p-4 relative overflow-hidden shadow-inner grayscale opacity-60">
-                          <span className="text-5xl mb-4 text-slate-700 opacity-50">🔒</span>
-                          <span className="text-[9px] text-slate-600 font-bold tracking-widest text-center uppercase">Carta Bloqueada</span>
+                        <div className="w-28 h-40 min-[380px]:w-36 min-[380px]:h-52 bg-slate-950 border-2 border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center p-4 relative overflow-hidden shadow-inner grayscale opacity-60">
+                          <span className="text-3xl sm:text-5xl mb-2 sm:mb-4 text-slate-700 opacity-50">🔒</span>
+                          <span className="text-[7px] sm:text-[9px] text-slate-600 font-bold tracking-widest text-center uppercase">Carta Bloqueada</span>
                         </div>
                       )}
                       <div className="mt-3 text-center">
@@ -1576,6 +1597,48 @@ function GamePage() {
                       <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800 flex flex-col items-center justify-center">
                         <img src="/symbols/METEOROLOGIA.png" alt="Meteorología" className="w-10 h-10 object-contain mb-2 filter drop-shadow-[0_0_3px_rgba(6,182,212,0.3)]" />
                         <span className="font-bold text-xs text-slate-200">Meteorología</span>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-2xl font-bold text-cyan-400 mb-3 flex items-center"><span className="text-3xl mr-2">🎮</span> Guía Rápida de Juego</h3>
+                    <div className="bg-slate-950/50 p-6 rounded-xl border border-slate-800 text-slate-300 leading-relaxed space-y-4">
+                      <p>Aprende las mecánicas clave para iniciar tu primer duelo en segundos:</p>
+                      <ul className="list-disc pl-6 space-y-2 text-sm">
+                        <li><strong className="text-cyan-300">Construcción del Mazo:</strong> Antes de jugar, crea tu mazo en la pestaña de <strong>Colección/Mazo</strong>. Tu mazo debe tener entre 5 y 15 cartas académicas.</li>
+                        <li><strong className="text-cyan-300">Inicio del Duelo:</strong> Ambos duelistas inician con 4000 LP (Puntos de Vida) y roban una mano inicial de 3 cartas.</li>
+                        <li><strong className="text-cyan-300">Invocación de Monstruos:</strong> Arrastra o presiona un monstruo de tu mano y selecciona una ranura (Slot) vacía en tu lado del campo. Invocar monstruos no cuesta energía, pero estás limitado a un máximo de 3 monstruos simultáneos en el tablero.</li>
+                        <li><strong className="text-cyan-300">Uso de Energía y Hechizos:</strong> En cada turno recuperas tu barra de energía (⚡). Utilízala para lanzar poderosos hechizos desde tu mano seleccionando el objetivo indicado.</li>
+                        <li><strong className="text-cyan-300">Fase de Ataque:</strong> Selecciona un monstruo en tu campo que esté activo (los monstruos recién invocados deben esperar un turno para atacar). Luego, presiona una ranura de la columna enemiga para golpear su defensa o atacar directamente a sus LP si la columna está vacía.</li>
+                        <li><strong className="text-cyan-300">Fin del Turno:</strong> Una vez realizadas tus acciones, presiona <strong>Terminar Turno</strong> para ceder el turno al oponente. El duelo termina cuando los LP de algún jugador llegan a 0.</li>
+                      </ul>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-2xl font-bold text-purple-400 mb-3 flex items-center"><span className="text-3xl mr-2">📱</span> Jugabilidad: Escritorio vs. Teléfono</h3>
+                    <div className="bg-slate-950/50 p-6 rounded-xl border border-slate-800 text-slate-300 leading-relaxed space-y-4">
+                      <p>El juego ha sido optimizado para brindar una experiencia impecable tanto en navegadores de PC como en dispositivos móviles:</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div className="bg-slate-900/60 p-4 rounded-lg border border-slate-800">
+                          <h4 className="font-bold text-sm text-purple-300 mb-2">Versión de Escritorio 💻</h4>
+                          <ul className="list-disc pl-4 space-y-1.5">
+                            <li>El creador de mazos muestra el catálogo y tu mazo lado a lado en pantalla completa.</li>
+                            <li>El historial de duelo (registro) permanece fijo en la barra lateral derecha para seguimiento constante.</li>
+                            <li>La información de las cartas se puede leer simplemente pasando el puntero del mouse por encima de ellas (hover).</li>
+                            <li>El panel de LP del jugador, energía y botones ocupan una columna compacta fija.</li>
+                          </ul>
+                        </div>
+                        <div className="bg-slate-900/60 p-4 rounded-lg border border-slate-800">
+                          <h4 className="font-bold text-sm text-purple-300 mb-2">Versión de Teléfono 📱</h4>
+                          <ul className="list-disc pl-4 space-y-1.5">
+                            <li>El creador de mazos se divide en pestañas dinámicas (<strong>Catálogo</strong> y <strong>Tu Mazo</strong>) para maximizar la visibilidad.</li>
+                            <li>El historial de combate se esconde automáticamente y se abre tocando el botón flotante 📜.</li>
+                            <li><strong>Gesto Long-Press:</strong> Lee la descripción de cualquier carta en el tablero o mano manteniéndola presionada durante <strong>500ms</strong>.</li>
+                            <li>La mano del jugador y los LP se organizan en filas compactas con scroll horizontal suave.</li>
+                          </ul>
+                        </div>
                       </div>
                     </div>
                   </section>
@@ -1836,20 +1899,20 @@ function GamePage() {
 
           {/* Left Side: Card Catalog */}
           <div className={`flex-grow flex flex-col md:w-2/3 h-full overflow-hidden bg-slate-900/60 rounded-3xl border border-slate-700/50 shadow-2xl backdrop-blur-md ${activeDeckTab === 'CATALOG' ? 'flex' : 'hidden md:flex'}`}>
-            <div className="p-6 border-b border-slate-700/50 flex justify-between items-center">
-              <div>
-                <h2 className="text-3xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 drop-shadow-sm">Catálogo</h2>
-                <p className="text-slate-400 text-xs font-mono mt-1">Selecciona entre 5 y 15 cartas para tu estrategia.</p>
+            <div className="p-4 sm:p-6 border-b border-slate-700/50 flex flex-col sm:flex-row gap-4 justify-between items-center">
+              <div className="text-center sm:text-left">
+                <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 drop-shadow-sm">Catálogo</h2>
+                <p className="text-slate-400 text-[10px] sm:text-xs font-mono mt-1">Selecciona entre 5 y 15 cartas para tu estrategia.</p>
               </div>
-              <div className="flex space-x-4 items-center">
-                <div className="flex space-x-2">
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:space-x-4 w-full sm:w-auto">
+                <div className="flex gap-1.5 sm:gap-2">
                   {['ALL', 'MONSTER', 'SPELL'].map(tab => (
-                    <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-4 py-1.5 rounded-lg font-bold uppercase text-[10px] tracking-wider transition-all ${activeTab === tab ? 'bg-slate-700 text-white shadow-md' : 'bg-slate-900/50 text-slate-500 hover:bg-slate-800 border border-slate-800'}`}>
+                    <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-2.5 py-1.5 sm:px-4 sm:py-1.5 rounded-lg font-bold uppercase text-[9px] sm:text-[10px] tracking-wider transition-all ${activeTab === tab ? 'bg-slate-700 text-white shadow-md' : 'bg-slate-900/50 text-slate-500 hover:bg-slate-800 border border-slate-800'}`}>
                       {tab === 'ALL' ? 'Todas' : tab === 'MONSTER' ? 'Monstruos' : 'Hechizos'}
                     </button>
                   ))}
                 </div>
-                <button onClick={() => setShowExitConfirm(true)} className="px-4 py-1.5 bg-red-600/80 hover:bg-red-500 rounded-lg text-white font-bold text-[10px] uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(220,38,38,0.2)]">
+                <button onClick={() => setShowExitConfirm(true)} className="px-3 py-1.5 sm:px-4 sm:py-1.5 bg-red-600/80 hover:bg-red-500 rounded-lg text-white font-bold text-[9px] sm:text-[10px] uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(220,38,38,0.2)]">
                   Salir
                 </button>
               </div>
@@ -1896,7 +1959,20 @@ function GamePage() {
                         whileHover={{ scale: isMaxedOut ? 1 : 1.05 }}
                         key={card.id} 
                         className={`relative flex flex-col items-center group ${isMaxedOut ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer'}`}
-                        onClick={() => { if (!isMaxedOut) addCardToDeck(card.id); }}
+                        onTouchStart={() => startTouchPreview(card.id)}
+                        onTouchEnd={endTouchPreview}
+                        onTouchCancel={endTouchPreview}
+                        onClick={() => {
+                          if (isLongPressRef.current) {
+                            isLongPressRef.current = false;
+                            return;
+                          }
+                          const pressDuration = Date.now() - touchStartRef.current;
+                          if (touchStartRef.current > 0 && pressDuration > 400) {
+                            return;
+                          }
+                          if (!isMaxedOut) addCardToDeck(card.id);
+                        }}
                       >
                         <div className="w-36 h-52 relative">
                           <GameCardContent card={card} onPreview={() => setPreviewCardId(card.id)} />
@@ -2257,13 +2333,30 @@ function GamePage() {
           ))}
         </div>
 
-        <div className="flex-grow flex flex-col justify-center gap-3 sm:gap-6 items-center z-10 pointer-events-none transform scale-[0.62] min-[390px]:scale-[0.72] sm:scale-[0.85] md:scale-95 lg:scale-100 origin-center py-2">
+        <div className="flex-grow flex flex-col justify-center gap-3 sm:gap-6 items-center z-10 pointer-events-none transform scale-[0.78] min-[390px]:scale-[0.85] sm:scale-[0.88] md:scale-95 lg:scale-100 origin-center py-2">
           
           <div className="grid grid-cols-3 gap-4 sm:gap-6 w-full max-w-2xl justify-items-center pointer-events-auto">
             {[0, 1, 2].map(i => {
               const m = opponent?.monsterZone?.[i];
               return (
-                <div key={`opp-slot-${i}`} onClick={() => handleOpponentSlotClick(i)} className="w-20 h-28 min-[380px]:w-24 min-[380px]:h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 flex items-center justify-center relative cursor-pointer">
+                <div 
+                  key={`opp-slot-${i}`} 
+                  onTouchStart={() => { if (m) startTouchPreview(m.id); }}
+                  onTouchEnd={endTouchPreview}
+                  onTouchCancel={endTouchPreview}
+                  onClick={() => {
+                    if (isLongPressRef.current) {
+                      isLongPressRef.current = false;
+                      return;
+                    }
+                    const pressDuration = Date.now() - touchStartRef.current;
+                    if (touchStartRef.current > 0 && pressDuration > 400) {
+                      return;
+                    }
+                    handleOpponentSlotClick(i);
+                  }}
+                  className="w-20 h-28 min-[380px]:w-24 min-[380px]:h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 flex items-center justify-center relative cursor-pointer"
+                >
                   <motion.div variants={layer3SlotVariants as any} className="absolute inset-0 rounded-2xl -z-10" />
                   <AnimatePresence mode="popLayout">
                     {m && (
@@ -2291,7 +2384,24 @@ function GamePage() {
               const m = me?.monsterZone?.[i];
               const isSelectedTarget = selectedActionCard && me?.hand.find(c => c.id === selectedActionCard)?.type === 'MONSTER' && !m;
               return (
-                <div key={`my-slot-${i}`} onClick={() => handleMySlotClick(i)} className={`w-20 h-28 min-[380px]:w-24 min-[380px]:h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 flex items-center justify-center relative cursor-pointer hover:-translate-y-2 transition-transform ${isSelectedTarget ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}>
+                <div 
+                  key={`my-slot-${i}`} 
+                  onTouchStart={() => { if (m) startTouchPreview(m.id); }}
+                  onTouchEnd={endTouchPreview}
+                  onTouchCancel={endTouchPreview}
+                  onClick={() => {
+                    if (isLongPressRef.current) {
+                      isLongPressRef.current = false;
+                      return;
+                    }
+                    const pressDuration = Date.now() - touchStartRef.current;
+                    if (touchStartRef.current > 0 && pressDuration > 400) {
+                      return;
+                    }
+                    handleMySlotClick(i);
+                  }}
+                  className={`w-20 h-28 min-[380px]:w-24 min-[380px]:h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 flex items-center justify-center relative cursor-pointer hover:-translate-y-2 transition-transform ${isSelectedTarget ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}
+                >
                   <motion.div variants={layer3SlotVariants as any} className="absolute inset-0 rounded-2xl -z-10" />
                   <AnimatePresence mode="popLayout">
                     {m && (
@@ -2347,7 +2457,20 @@ function GamePage() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, scale: 0, rotate: 180 }}
                   transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-                  onClick={() => handleHandCardClick(card)}
+                  onTouchStart={() => startTouchPreview(card.id)}
+                  onTouchEnd={endTouchPreview}
+                  onTouchCancel={endTouchPreview}
+                  onClick={() => {
+                    if (isLongPressRef.current) {
+                      isLongPressRef.current = false;
+                      return;
+                    }
+                    const pressDuration = Date.now() - touchStartRef.current;
+                    if (touchStartRef.current > 0 && pressDuration > 400) {
+                      return;
+                    }
+                    handleHandCardClick(card);
+                  }}
                   disabled={!isMyTurn || isActionLocked}
                   className={`group relative transition-all duration-300 hover:-translate-y-6 hover:scale-105 disabled:hover:translate-y-0 disabled:hover:scale-100 text-left flex-shrink-0 w-20 h-28 min-[380px]:w-24 min-[380px]:h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 ${selectedActionCard === card.id ? '-translate-y-6 ring-4 ring-blue-500 rounded-xl shadow-2xl' : 'hover:shadow-2xl hover:shadow-blue-900/50'}`}
                 >
@@ -3089,8 +3212,11 @@ function LightningStorm() {
   );
 }
 
+let magoAttackCount = 0;
+
 function AttackAnimationOverlay({ animatingCard, gameState, playerId }: { animatingCard: any, gameState: GameState | null, playerId: string | null }) {
   const [coords, setCoords] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
+  const [attackIndex, setAttackIndex] = useState(0);
 
   useEffect(() => {
     if (!animatingCard || !gameState) return;
@@ -3147,6 +3273,14 @@ function AttackAnimationOverlay({ animatingCard, gameState, playerId }: { animat
     attackerMonsterId = 'm1';
   }
 
+  useEffect(() => {
+    if (attackerMonsterId === 'm3') {
+      const current = magoAttackCount;
+      setAttackIndex(current);
+      magoAttackCount += 1;
+    }
+  }, [attackerMonsterId]);
+
   const { x1, y1, x2, y2 } = coords;
   const distanceX = x2 - x1;
   const distanceY = y2 - y1;
@@ -3186,128 +3320,259 @@ function AttackAnimationOverlay({ animatingCard, gameState, playerId }: { animat
         </div>
       );
 
-    case 'm2': // Caballero de Acero
+    case 'm2': // Caballero de Acero - Tajo Cruzado
       return (
         <div className="fixed inset-0 pointer-events-none z-[100]">
+          {/* First Slash Sword */}
           <motion.div
-            initial={{ left: x2, top: y2 - 60, rotate: -45, scale: 0.8, opacity: 0 }}
-            animate={{ rotate: [-45, 45], scale: [0.8, 1.4, 1.2], opacity: [0, 1, 1, 0] }}
-            transition={{ duration: 0.5, times: [0, 0.3, 0.7, 1] }}
-            className="absolute -translate-x-1/2 -translate-y-1/2 w-12 h-36 origin-bottom flex flex-col items-center"
+            initial={{ left: x2 - 50, top: y2 - 50, rotate: -45, scale: 0.5, opacity: 0 }}
+            animate={{ 
+              left: [x2 - 50, x2 + 50], 
+              top: [y2 - 50, y2 + 50],
+              rotate: [-45, 45],
+              scale: [0.5, 1.2, 0.5],
+              opacity: [0, 1, 1, 0]
+            }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-8 h-24 origin-center flex flex-col items-center"
           >
-            <div className="w-4 h-28 bg-gradient-to-r from-slate-300 via-slate-100 to-slate-400 rounded-t-lg border-x border-t border-slate-50 relative shadow-[0_0_20px_rgba(255,255,255,0.7)]">
-              <div className="absolute left-1.5 top-0 w-0.5 h-full bg-white opacity-60" />
-            </div>
-            <div className="w-14 h-3 bg-amber-500 border border-amber-600 rounded" />
-            <div className="w-2.5 h-8 bg-amber-950 rounded-b" />
+            <div className="w-2 h-18 bg-gradient-to-r from-slate-200 to-slate-400 rounded-t-lg border-t border-white shadow-[0_0_15px_rgba(255,255,255,0.8)]" />
+            <div className="w-8 h-1.5 bg-amber-500 rounded" />
+            <div className="w-1.5 h-4 bg-amber-950 rounded-b" />
           </motion.div>
+
+          {/* First Slash Line */}
           <motion.div
-            initial={{ left: x2 - 80, top: y2 - 20, width: 0, opacity: 1 }}
-            animate={{ width: [0, 160], opacity: [1, 1, 0] }}
-            transition={{ duration: 0.4, delay: 0.15 }}
-            style={{ rotate: '25deg' }}
-            className="absolute h-1.5 bg-white shadow-[0_0_15px_white] rounded-full"
+            initial={{ left: x2 - 60, top: y2 - 60, width: 0, opacity: 1 }}
+            animate={{ width: [0, 140], opacity: [1, 1, 0] }}
+            transition={{ duration: 0.35, delay: 0.1 }}
+            style={{ rotate: '45deg', transformOrigin: 'left center' }}
+            className="absolute h-1.5 bg-white shadow-[0_0_12px_cyan] rounded-full"
+          />
+
+          {/* Second Slash Sword */}
+          <motion.div
+            initial={{ left: x2 + 50, top: y2 - 50, rotate: 45, scale: 0.5, opacity: 0 }}
+            animate={{ 
+              left: [x2 + 50, x2 - 50], 
+              top: [y2 - 50, y2 + 50],
+              rotate: [45, -45],
+              scale: [0.5, 1.2, 0.5],
+              opacity: [0, 1, 1, 0]
+            }}
+            transition={{ duration: 0.4, delay: 0.35, ease: 'easeOut' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-8 h-24 origin-center flex flex-col items-center"
+          >
+            <div className="w-2 h-18 bg-gradient-to-r from-slate-200 to-slate-400 rounded-t-lg border-t border-white shadow-[0_0_15px_rgba(255,255,255,0.8)]" />
+            <div className="w-8 h-1.5 bg-amber-500 rounded" />
+            <div className="w-1.5 h-4 bg-amber-950 rounded-b" />
+          </motion.div>
+
+          {/* Second Slash Line */}
+          <motion.div
+            initial={{ left: x2 + 60, top: y2 - 60, width: 0, opacity: 1 }}
+            animate={{ width: [0, 140], opacity: [1, 1, 0] }}
+            transition={{ duration: 0.35, delay: 0.45 }}
+            style={{ rotate: '-45deg', transformOrigin: 'right center' }}
+            className="absolute h-1.5 bg-white shadow-[0_0_12px_cyan] rounded-full"
           />
         </div>
       );
 
-    case 'm3': // Mago Tormenta
-      return (
-        <div className="fixed inset-0 pointer-events-none z-[100]">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 0.6, 0.2, 0.7, 0] }}
-            transition={{ duration: 0.4 }}
-            className="absolute inset-0 bg-blue-400/20 mix-blend-overlay"
-          />
-          <svg className="absolute inset-0 w-full h-full text-blue-400" style={{ filter: 'drop-shadow(0 0 10px rgba(59,130,246,0.8))' }}>
-            <motion.path
-              d={`M ${x1} ${y1} L ${(x1+x2)/2 + (Math.random()-0.5)*60} ${(y1+y2)/2 + (Math.random()-0.5)*40} L ${x2} ${y2}`}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="4"
-              initial={{ pathLength: 0 }}
-              animate={{ pathLength: [0, 1], opacity: [1, 0.8, 1, 0] }}
-              transition={{ duration: 0.45 }}
-            />
-            <motion.path
-              d={`M ${x1+20} ${y1-10} L ${(x1+x2)/2 - 30} ${(y1+y2)/2} L ${x2} ${y2}`}
-              fill="none"
-              stroke="#60a5fa"
-              strokeWidth="2.5"
-              initial={{ pathLength: 0 }}
-              animate={{ pathLength: [0, 1], opacity: [1, 0] }}
-              transition={{ duration: 0.4, delay: 0.05 }}
-            />
-          </svg>
-          {[...Array(6)].map((_, i) => {
-            const dx = (Math.random() - 0.5) * 80;
-            const dy = (Math.random() - 0.5) * 80;
-            return (
-              <motion.div
-                key={i}
-                initial={{ left: x2, top: y2, scale: 0, opacity: 1 }}
-                animate={{ left: x2 + dx, top: y2 + dy, scale: [0, 1.5, 0], opacity: 0 }}
-                transition={{ duration: 0.5, delay: 0.25 }}
-                className="absolute w-2 h-2 bg-blue-300 rounded-full shadow-[0_0_8px_#3b82f6]"
+    case 'm3': { // Mago Tormenta (Mago del Clima) - Alternating cloud/lightning vs tornado
+      const isCloudLightning = attackIndex % 2 === 0;
+
+      if (isCloudLightning) {
+        return (
+          <div className="fixed inset-0 pointer-events-none z-[100]">
+            {/* Dark Storm Cloud appearing above target */}
+            <motion.div
+              initial={{ left: x2, top: y2 - 140, scale: 0, opacity: 0 }}
+              animate={{ 
+                scale: [0, 1.4, 1.2], 
+                opacity: [0, 1, 1, 0],
+                x: [0, -10, 10, -5, 5, 0] 
+              }}
+              transition={{ duration: 1.4, times: [0, 0.2, 0.8, 1] }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 text-7xl filter drop-shadow-[0_0_15px_#1e293b]"
+            >
+              ☁️⛈️
+            </motion.div>
+
+            {/* Lightning bolt striking down at 0.5s */}
+            <svg className="absolute inset-0 w-full h-full text-yellow-300" style={{ filter: 'drop-shadow(0 0 15px #fbbf24)' }}>
+              <motion.path
+                d={`M ${x2} ${y2 - 100} L ${x2 - 20} ${y2 - 50} L ${x2 + 10} ${y2 - 20} L ${x2} ${y2}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="5"
+                strokeLinecap="round"
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ 
+                  pathLength: [0, 1, 1, 0], 
+                  opacity: [0, 1, 1, 0] 
+                }}
+                transition={{ 
+                  duration: 0.4, 
+                  delay: 0.5,
+                  times: [0, 0.2, 0.8, 1]
+                }}
               />
-            );
-          })}
-        </div>
-      );
+            </svg>
 
-    case 'm4': // Gólem de Concreto
+            {/* Screen Flash upon strike */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 0.5, 0] }}
+              transition={{ duration: 0.2, delay: 0.55 }}
+              className="absolute inset-0 bg-yellow-100 mix-blend-overlay"
+            />
+          </div>
+        );
+      } else {
+        return (
+          <div className="fixed inset-0 pointer-events-none z-[100]">
+            {/* Traveling Dust Tornado */}
+            <motion.div
+              initial={{ left: x1, top: y1, scale: 0.4, rotate: 0 }}
+              animate={{ 
+                left: [x1, x2], 
+                top: [y1, y2], 
+                scale: [0.4, 1.8, 1.3], 
+                rotate: [0, 1080],
+                x: [0, -20, 20, -10, 10, 0] 
+              }}
+              transition={{ duration: 1.0, ease: 'easeInOut' }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 text-7xl filter drop-shadow-[0_0_15px_#78716c]"
+            >
+              🌪️
+            </motion.div>
+
+            {/* Dust debris kicked up at target */}
+            {[...Array(12)].map((_, i) => {
+              const dx = (Math.random() - 0.5) * 160;
+              const dy = (Math.random() - 0.5) * 100 - 30;
+              return (
+                <motion.div
+                  key={i}
+                  initial={{ left: x2, top: y2, scale: 0, opacity: 0 }}
+                  animate={{ 
+                    left: x2 + dx, 
+                    top: y2 + dy, 
+                    scale: [0, 2.5, 0], 
+                    opacity: [0, 0.8, 0],
+                    rotate: 360 
+                  }}
+                  transition={{ duration: 0.6, delay: 0.9, ease: 'easeOut' }}
+                  className="absolute w-3 h-3 bg-[#a8a29e] rounded-full blur-[1px]"
+                />
+              );
+            })}
+          </div>
+        );
+      }
+    }
+
+    case 'm4': // Gólem de Concreto - Projectile fist + stone fragments
       return (
         <div className="fixed inset-0 pointer-events-none z-[100]">
+          {/* Traveling Rock Fist Projectile */}
           <motion.div
-            initial={{ left: x2, top: y2 - 120, scale: 1.8, opacity: 0 }}
-            animate={{ top: [y2 - 120, y2], scale: [1.8, 1], opacity: [0, 1, 1, 0] }}
-            transition={{ duration: 0.5, times: [0, 0.4, 0.8, 1], ease: 'easeIn' }}
-            className="absolute -translate-x-1/2 -translate-y-1/2 w-16 h-16 flex items-center justify-center text-6xl drop-shadow-[0_0_15px_black]"
+            initial={{ left: x1, top: y1, scale: 0.5, rotate: angle }}
+            animate={{ left: [x1, x2], top: [y1, y2], scale: [0.5, 1.8, 1.4], rotate: angle }}
+            transition={{ duration: 0.45, ease: 'easeIn' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 text-7xl select-none"
+            style={{ filter: 'grayscale(0.6) contrast(1.3) brightness(0.75) drop-shadow(0 0 10px rgba(87,83,78,0.8))' }}
           >
             ✊
           </motion.div>
-          <motion.div
-            initial={{ left: x2, top: y2, scale: 0, opacity: 1, border: '2px solid rgba(120,113,108,0.8)' }}
-            animate={{ scale: [0, 2.5], opacity: [1, 0] }}
-            transition={{ duration: 0.4, delay: 0.22 }}
-            className="absolute -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full"
-          />
-          {[...Array(8)].map((_, i) => {
-            const rx = (Math.random() - 0.5) * 120;
-            const ry = (Math.random() - 0.5) * 80 - 40;
+          
+          {/* Stone Fragments on impact falling like debris */}
+          {[...Array(16)].map((_, i) => {
+            const rx = (Math.random() - 0.5) * 180;
+            const ry = -80 - Math.random() * 120; 
+            const duration = 0.7 + Math.random() * 0.4;
             return (
               <motion.div
                 key={i}
-                initial={{ left: x2, top: y2, scale: 1 }}
-                animate={{ left: x2 + rx, top: y2 + ry, y: [0, -60, 40], scale: 0, rotate: 360 }}
-                transition={{ duration: 0.6, delay: 0.2, ease: 'easeOut' }}
-                className="absolute w-3.5 h-3 bg-stone-600 border border-stone-800 rounded"
+                initial={{ left: x2, top: y2, scale: Math.random() * 1.5 + 0.5, opacity: 1, rotate: 0 }}
+                animate={{ 
+                  left: x2 + rx, 
+                  top: y2, 
+                  y: [0, ry, 150], 
+                  opacity: [1, 1, 0],
+                  rotate: 360 + Math.random() * 360
+                }}
+                transition={{ duration, delay: 0.43, ease: 'easeOut' }}
+                className="absolute w-3.5 h-3.5 bg-[#44403c] border border-[#292524] rounded-md shadow-lg"
               />
             );
           })}
         </div>
       );
 
-    case 'm5': // Limo Tóxico
+    case 'm5': // Limo Tóxico - Sticky Green splat staying stuck
       return (
         <div className="fixed inset-0 pointer-events-none z-[100]">
+          {/* Traveling Slime Ball */}
           <motion.div
-            initial={{ left: x1, top: y1, scale: 0.6 }}
-            animate={{ left: [x1, x2], top: [y1, y2], scale: [0.6, 1.2, 0.8] }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="absolute -translate-x-1/2 -translate-y-1/2 w-7 h-7 bg-green-500 rounded-full blur-[1px] border border-green-400 shadow-[0_0_12px_#22c55e]"
+            initial={{ left: x1, top: y1, scale: 0.6, borderRadius: '40% 60% 50% 50% / 50% 50% 50% 50%' }}
+            animate={{ 
+              left: [x1, x2], 
+              top: [y1, y2], 
+              scale: [0.6, 1.2, 0.9],
+              rotate: [0, 360],
+              borderRadius: [
+                '40% 60% 50% 50% / 50% 50% 50% 50%',
+                '30% 70% 40% 60% / 60% 40% 60% 40%',
+                '50% 50% 50% 50% / 50% 50% 50% 50%'
+              ]
+            }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-[#22c55e] blur-[0.5px] border border-[#4ade80] shadow-[0_0_15px_#22c55e]"
           />
-          {[...Array(10)].map((_, i) => {
-            const vx = (Math.random() - 0.5) * 90;
-            const vy = (Math.random() - 0.5) * 90;
+
+          {/* Splatted Sticky Baba (Stays stuck) */}
+          <motion.div
+            initial={{ left: x2, top: y2, scale: 0, opacity: 0 }}
+            animate={{ 
+              scale: [0, 1.5, 1.3], 
+              opacity: [0, 1, 1, 0],
+              borderRadius: [
+                '50% 50% 50% 50%',
+                '60% 40% 70% 30% / 40% 60% 30% 70%', 
+                '65% 35% 60% 40% / 45% 55% 40% 60%'
+              ]
+            }}
+            transition={{ 
+              duration: 1.1, 
+              delay: 0.35,
+              times: [0, 0.15, 1], 
+              ease: 'easeOut'
+            }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-800 border-2 border-green-400/60 shadow-[0_0_20px_rgba(34,197,94,0.6)] flex items-center justify-center"
+          >
+            <div className="absolute w-3 h-3 bg-green-300 rounded-full top-2 left-3 opacity-60 blur-[0.5px]" />
+            <div className="absolute w-2 h-2 bg-green-200 rounded-full bottom-3 right-3 opacity-40" />
+            <span className="text-xl select-none">🦠</span>
+          </motion.div>
+
+          {/* Splat Drips falling down */}
+          {[...Array(6)].map((_, i) => {
+            const rx = (Math.random() - 0.5) * 60;
+            const ry = 10 + Math.random() * 30;
             return (
               <motion.div
                 key={i}
-                initial={{ left: x2, top: y2, scale: 1.2, opacity: 1 }}
-                animate={{ left: x2 + vx, top: y2 + vy, scale: 0, opacity: 0 }}
-                transition={{ duration: 0.5, delay: 0.4 }}
-                className="absolute w-3 h-3 bg-green-400 rounded-full blur-[0.5px]"
+                initial={{ left: x2, top: y2, scale: 0, opacity: 0 }}
+                animate={{ 
+                  left: x2 + rx,
+                  top: y2 + ry,
+                  scale: [0, 1, 0.8],
+                  opacity: [0, 1, 1, 0] 
+                }}
+                transition={{ duration: 1.0, delay: 0.4, ease: 'easeOut' }}
+                className="absolute w-2 h-4 bg-green-600 rounded-full blur-[0.5px]"
               />
             );
           })}
