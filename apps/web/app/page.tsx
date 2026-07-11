@@ -2422,7 +2422,11 @@ function GamePage() {
             <motion.div initial={{ scale: 0.8, y: 50, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 50, opacity: 0 }} transition={{ type: 'spring', damping: 20, stiffness: 200, delay: 0.2 }} className="bg-slate-800 p-12 rounded-3xl border-4 border-amber-500 shadow-[0_0_100px_rgba(245,158,11,0.2)] text-center max-w-sm w-full">
               <h2 className="text-6xl mb-6">{gameState.winner === playerId ? '🏆' : '💀'}</h2>
               <h3 className="text-4xl font-bold mb-2 uppercase tracking-tighter">{gameState.winner === playerId ? '¡Victoria!' : 'Derrota'}</h3>
-              <p className="text-slate-400 mb-8">{gameState.winner === playerId ? 'Has dominado el campo de batalla.' : 'Tus monstruos han caído en combate.'}</p>
+              <p className="text-slate-400 mb-8">
+                {gameState.surrenderReason 
+                  ? gameState.surrenderReason 
+                  : (gameState.winner === playerId ? 'Has dominado el campo de batalla.' : 'Tus monstruos han caído en combate.')}
+              </p>
               {opponentId === 'cpu' ? (
                 <div className="space-y-4">
                   <button onClick={nextAdventure} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-black transition-all shadow-xl shadow-blue-900/40 uppercase tracking-widest cursor-pointer">

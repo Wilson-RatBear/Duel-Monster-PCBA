@@ -1085,9 +1085,56 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
     });
 
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       console.log(`User disconnected: ${socket.id}`);
-      delete socketToPlayerId[socket.id];
+      const playerId = socketToPlayerId[socket.id];
+      if (playerId) {
+        const roomId = playerIdToRoom[playerId];
+        if (roomId) {
+          const game = games[roomId];
+          if (game && game.phase !== 'GAME_OVER' && game.phase !== 'LOBBY') {
+            const isAdventure = roomId.startsWith('PVE-');
+            if (!isAdventure) {
+              // Multiplayer game disconnect handling
+              const playerIds = Object.keys(game.players);
+              const remainingPlayerId = playerIds.find(id => id !== playerId);
+              
+              if (remainingPlayerId) {
+                const winnerId = remainingPlayerId;
+                const loserId = playerId;
+                
+                const winnerName = game.players[winnerId].name;
+                const loserName = game.players[loserId].name;
+                
+                game.phase = 'GAME_OVER';
+                game.winner = winnerId;
+                game.surrenderReason = `${loserName} se ha desconectado. ¡Ganas por abandono!`;
+                game.logs.push(`${loserName} se ha desconectado. ${winnerName} gana por abandono.`);
+                
+                const winnerHp = game.players[winnerId].hp;
+                const loserHp = game.players[loserId].hp;
+                
+                // Record loss for disconnected player
+                recordMatchResult(loserId, winnerId, winnerName, false, 'loss', loserHp, winnerHp).catch(err => {
+                  console.error(`[DISCONNECT] Error writing match loss for ${loserId}:`, err);
+                });
+                
+                // Record win for remaining player
+                recordMatchResult(winnerId, loserId, loserName, false, 'win', winnerHp, loserHp).then(profile => {
+                  const { password: _, ...cleanProfile } = profile as any;
+                  io.to(roomId).emit('profileUpdate', cleanProfile as any);
+                }).catch(err => {
+                  console.error(`[DISCONNECT] Error writing match win for ${winnerId}:`, err);
+                });
+                
+                io.to(roomId).emit('gameUpdate', game);
+              }
+            }
+          }
+          delete playerIdToRoom[playerId];
+        }
+        delete socketToPlayerId[socket.id];
+      }
     });
   });
 

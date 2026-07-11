@@ -68,6 +68,7 @@ export interface GameState {
   logs: string[];
   isFirstTurn: boolean;
   dominantTheme?: string;
+  surrenderReason?: string;
 }
 
 export interface MatchHistoryEntry {
