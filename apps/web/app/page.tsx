@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { io, Socket } from 'socket.io-client';
 import { motion, AnimatePresence, usePresence, animate } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
@@ -296,7 +297,7 @@ function Layer2Grid({ theme }: { theme: string }) {
   );
 }
 
-export default function GamePage() {
+function GamePage() {
   const [socket, setSocket] = useState<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [roomIdInput, setRoomIdInput] = useState('');
@@ -3612,3 +3613,8 @@ function AttackAnimationOverlay({ animatingCard, gameState, playerId }: { animat
   }
 }
 
+const GamePageDynamic = dynamic(() => Promise.resolve(GamePage), {
+  ssr: false
+});
+
+export default GamePageDynamic;
