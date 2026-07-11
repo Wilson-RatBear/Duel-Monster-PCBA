@@ -394,6 +394,7 @@ function GamePage() {
     });
 
     newSocket.on('error', (msg) => {
+      console.error('Socket received error:', msg);
       setError(msg);
     });
 
@@ -663,6 +664,13 @@ function GamePage() {
       <div className={`flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans relative overflow-x-hidden ${isLightMode ? 'light' : ''}`}>
         {/* Starry bg */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(20,25,60,0.6)_0%,_rgba(2,5,15,1)_85%)] z-0" />
+        
+        {error && (
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 bg-red-950/90 border border-red-900/60 text-red-400 p-3 rounded-xl text-center text-xs font-mono animate-pulse z-50 shadow-2xl flex items-center space-x-2">
+            <span>⚠️ {error}</span>
+            <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-400 font-bold text-sm cursor-pointer">×</button>
+          </div>
+        )}
         
         {/* Header */}
         <header className="relative z-10 max-w-7xl w-full mx-auto px-6 py-6 flex justify-between items-center border-b border-slate-900/80">
