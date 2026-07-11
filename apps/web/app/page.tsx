@@ -675,7 +675,7 @@ function GamePage() {
         {/* Header */}
         <header className="relative z-10 max-w-7xl w-full mx-auto px-6 py-6 flex justify-between items-center border-b border-slate-900/80">
           <div className="flex items-center space-x-2">
-            <img src="/symbols/concepto.png" className="w-6 h-6 object-contain" alt="" />
+            <img src="/symbols/docente.png" className="w-6 h-6 object-contain" alt="" />
             <span className="font-mono text-sm tracking-[0.3em] font-black uppercase text-slate-300">DOCENTE - DUEL MONSTERS</span>
           </div>
           <div className="flex items-center space-x-4">
