@@ -331,6 +331,7 @@ function GamePage() {
   const [teacherNoteInput, setTeacherNoteInput] = useState('');
   const [teacherScoreInput, setTeacherScoreInput] = useState<number>(10);
   const [teacherRecommendationInput, setTeacherRecommendationInput] = useState('');
+  const [teacherTab, setTeacherTab] = useState<'CARDS' | 'DECK' | 'HISTORY' | 'NOTES'>('CARDS');
   const [showGameOver, setShowGameOver] = useState(false);
 
   // Authentication State
@@ -633,7 +634,6 @@ function GamePage() {
   };
 
   const renderTeacherDashboard = () => {
-    const [teacherTab, setTeacherTab] = useState<'CARDS' | 'DECK' | 'HISTORY' | 'NOTES'>('CARDS');
     
     const handleSearch = (e: React.FormEvent) => {
       e.preventDefault();
