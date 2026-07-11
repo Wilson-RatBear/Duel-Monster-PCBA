@@ -150,6 +150,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
     socket.on('login', async (username, password) => {
       const result = await loginUser(username, password);
       if (result.success && result.profile) {
+        socketToPlayerId[socket.id] = result.profile.id;
         socket.emit('authSuccess', result.profile);
       } else {
         socket.emit('authError', result.message);
@@ -159,6 +160,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
     socket.on('register', async (username, password, displayName) => {
       const result = await registerUser(username, password, displayName);
       if (result.success && result.profile) {
+        socketToPlayerId[socket.id] = result.profile.id;
         socket.emit('authSuccess', result.profile);
       } else {
         socket.emit('authError', result.message);
@@ -191,6 +193,7 @@ export function setupDuelSocket(io: Server<ClientToServerEvents, ServerToClientE
     });
 
     socket.on('getProfile', async (playerId) => {
+      socketToPlayerId[socket.id] = playerId;
       const profile = await getUserProfile(playerId);
       socket.emit('profileUpdate', profile);
     });
