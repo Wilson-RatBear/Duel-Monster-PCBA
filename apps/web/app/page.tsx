@@ -404,6 +404,7 @@ function GamePage() {
 
 
     newSocket.on('teacherStudentSearchResult', (profile) => {
+      console.log('Client received teacherStudentSearchResult:', profile);
       setTeacherStudentProfile(profile);
       setTeacherSearchError(profile ? null : 'Alumno no encontrado.');
     });
@@ -637,6 +638,7 @@ function GamePage() {
     
     const handleSearch = (e: React.FormEvent) => {
       e.preventDefault();
+      console.log('Teacher searching student ID:', teacherSearchInput.trim(), 'Socket connected:', socket?.connected, 'Socket ID:', socket?.id);
       if (teacherSearchInput.trim()) {
         socket?.emit('teacherSearchStudent', teacherSearchInput.trim());
       }
