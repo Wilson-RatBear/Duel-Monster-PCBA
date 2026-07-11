@@ -317,6 +317,11 @@ function GamePage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [mainMenuTab, setMainMenuTab] = useState<'PLAY' | 'COLLECTION' | 'MANUAL' | 'PROFILE'>('PLAY');
 
+  // Mobile responsiveness states
+  const [activeDeckTab, setActiveDeckTab] = useState<'CATALOG' | 'DECK'>('CATALOG');
+  const [showMobileLog, setShowMobileLog] = useState(false);
+
+
   // New features states
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -673,12 +678,12 @@ function GamePage() {
         )}
         
         {/* Header */}
-        <header className="relative z-10 max-w-7xl w-full mx-auto px-6 py-6 flex justify-between items-center border-b border-slate-900/80">
-          <div className="flex items-center space-x-2">
+        <header className="relative z-10 max-w-7xl w-full mx-auto px-6 py-6 flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-slate-900/80">
+          <div className="flex items-center space-x-2 justify-center text-center">
             <img src="/symbols/docente.png" className="w-6 h-6 object-contain" alt="" />
             <span className="font-mono text-sm tracking-[0.3em] font-black uppercase text-slate-300">DOCENTE - DUEL MONSTERS</span>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:space-x-4">
             <button onClick={toggleThemeMode} className="p-2 border border-slate-800/40 hover:bg-slate-800/30 rounded-full text-sm cursor-pointer transition-all flex items-center justify-center">
               {isLightMode ? '🌙' : '☀️'}
             </button>
@@ -690,7 +695,7 @@ function GamePage() {
         </header>
 
         {/* Dashboard Main Area */}
-        <main className="relative z-10 flex-grow max-w-7xl w-full mx-auto px-6 py-12 flex flex-col lg:flex-row gap-8 overflow-hidden h-[calc(100vh-100px)]">
+        <main className="relative z-10 flex-grow max-w-7xl w-full mx-auto px-6 py-6 lg:py-12 flex flex-col lg:flex-row gap-8 overflow-y-auto lg:overflow-hidden h-auto lg:h-[calc(100vh-100px)]">
           {/* Left panel: Search & Logs */}
           <div className="w-full lg:w-[350px] flex-shrink-0 flex flex-col gap-6">
             {/* Search Card */}
@@ -738,25 +743,25 @@ function GamePage() {
           </div>
 
           {/* Right Panel: Student Profile Details */}
-          <div className="flex-grow bg-slate-900/20 border border-slate-800/60 backdrop-blur-2xl p-8 rounded-3xl shadow-xl overflow-hidden flex flex-col min-h-[500px]">
+          <div className="flex-grow bg-slate-900/20 border border-slate-800/60 backdrop-blur-2xl p-6 sm:p-8 rounded-3xl shadow-xl overflow-hidden flex flex-col min-h-[500px]">
             {teacherStudentProfile ? (
               <div className="flex flex-col h-full overflow-hidden">
                 {/* Header profile details */}
-                <div className="flex justify-between items-start border-b border-slate-800/50 pb-6 mb-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-800/50 pb-6 mb-6">
                   <div>
                     <h2 className="text-3xl font-black text-white">{teacherStudentProfile.name}</h2>
                     <p className="text-xs text-slate-500 font-mono mt-1">ID Alumno: {teacherStudentProfile.id}</p>
                   </div>
-                  <div className="flex gap-4">
-                    <div className="bg-slate-950/40 px-4 py-2 border border-slate-800/50 rounded-xl text-center">
+                  <div className="flex flex-wrap gap-2 sm:gap-4">
+                    <div className="bg-slate-950/40 px-3 py-1.5 sm:px-4 sm:py-2 border border-slate-800/50 rounded-xl text-center">
                       <span className="block text-lg font-bold text-amber-400">{teacherStudentProfile.pveWins}</span>
                       <span className="text-[8px] text-slate-500 font-mono uppercase tracking-wider">Victorias PVE</span>
                     </div>
-                    <div className="bg-slate-950/40 px-4 py-2 border border-slate-800/50 rounded-xl text-center">
+                    <div className="bg-slate-950/40 px-3 py-1.5 sm:px-4 sm:py-2 border border-slate-800/50 rounded-xl text-center">
                       <span className="block text-lg font-bold text-blue-400">{teacherStudentProfile.pveMatches || 0}</span>
                       <span className="text-[8px] text-slate-500 font-mono uppercase tracking-wider">Partidas PVE</span>
                     </div>
-                    <div className="bg-slate-950/40 px-4 py-2 border border-slate-800/50 rounded-xl text-center">
+                    <div className="bg-slate-950/40 px-3 py-1.5 sm:px-4 sm:py-2 border border-slate-800/50 rounded-xl text-center">
                       <span className="block text-lg font-bold text-purple-400">{teacherStudentProfile.pvpMatches || 0}</span>
                       <span className="text-[8px] text-slate-500 font-mono uppercase tracking-wider">Partidas PVP</span>
                     </div>
@@ -764,7 +769,7 @@ function GamePage() {
                 </div>
 
                 {/* Sub Tab selection */}
-                <div className="flex space-x-2 mb-6 border-b border-slate-800/30 pb-2">
+                <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-800/30 pb-2">
                   {(['CARDS', 'DECK', 'HISTORY', 'NOTES'] as const).map((tab) => (
                     <button 
                       key={tab} 
@@ -1246,65 +1251,65 @@ function GamePage() {
             Duel Monsters
           </h1>
           
-          <div className="flex space-x-4 mb-8 bg-slate-900/60 p-2 rounded-xl border border-slate-700/50 backdrop-blur-md items-center">
-            <button onClick={() => setMainMenuTab('PLAY')} className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all ${mainMenuTab === 'PLAY' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mb-8 bg-slate-900/60 p-2 rounded-2xl border border-slate-700/50 backdrop-blur-md items-center w-full max-w-[95vw] sm:max-w-2xl">
+            <button onClick={() => setMainMenuTab('PLAY')} className={`px-4 py-2 sm:px-8 sm:py-3 rounded-lg font-black uppercase tracking-widest text-xs sm:text-base transition-all ${mainMenuTab === 'PLAY' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
               Jugar
             </button>
-            <button onClick={() => { setMainMenuTab('COLLECTION'); if (playerId) socket?.emit('getProfile', playerId); }} className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all ${mainMenuTab === 'COLLECTION' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+            <button onClick={() => { setMainMenuTab('COLLECTION'); if (playerId) socket?.emit('getProfile', playerId); }} className={`px-4 py-2 sm:px-8 sm:py-3 rounded-lg font-black uppercase tracking-widest text-xs sm:text-base transition-all ${mainMenuTab === 'COLLECTION' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
               Colección
             </button>
-            <button onClick={() => { setMainMenuTab('PROFILE'); if (playerId) socket?.emit('getProfile', playerId); }} className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all ${mainMenuTab === 'PROFILE' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+            <button onClick={() => { setMainMenuTab('PROFILE'); if (playerId) socket?.emit('getProfile', playerId); }} className={`px-4 py-2 sm:px-8 sm:py-3 rounded-lg font-black uppercase tracking-widest text-xs sm:text-base transition-all ${mainMenuTab === 'PROFILE' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
               Perfil
             </button>
-            <button onClick={() => setShowLogoutConfirm(true)} className="px-8 py-3 rounded-lg font-black uppercase tracking-widest transition-all text-red-400 hover:text-red-300 hover:bg-red-950/30">
+            <button onClick={() => setShowLogoutConfirm(true)} className="px-4 py-2 sm:px-8 sm:py-3 rounded-lg font-black uppercase tracking-widest text-xs sm:text-base transition-all text-red-400 hover:text-red-300 hover:bg-red-950/30">
               Cerrar Sesión
             </button>
-            <button onClick={toggleThemeMode} className="px-4 py-3 rounded-lg font-black uppercase tracking-widest transition-all text-slate-300 hover:text-white hover:bg-slate-800/50 cursor-pointer flex items-center justify-center">
+            <button onClick={toggleThemeMode} className="px-3 py-2 sm:px-4 sm:py-3 rounded-lg font-black uppercase tracking-widest text-xs sm:text-base transition-all text-slate-300 hover:text-white hover:bg-slate-800/50 cursor-pointer flex items-center justify-center">
               {isLightMode ? '🌙' : '☀️'}
             </button>
           </div>
 
           {mainMenuTab === 'PLAY' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
-              <div className="bg-slate-900/80 p-8 rounded-3xl shadow-[0_0_40px_rgba(245,158,11,0.05)] border border-amber-900/30 flex flex-col items-center justify-between relative overflow-hidden group backdrop-blur-sm min-h-[400px]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8 w-full">
+              <div className="bg-slate-900/80 p-6 sm:p-8 rounded-3xl shadow-[0_0_40px_rgba(245,158,11,0.05)] border border-amber-900/30 flex flex-col items-center justify-between relative overflow-hidden group backdrop-blur-sm min-h-[350px] sm:min-h-[400px]">
                 <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-yellow-500/5 z-0 group-hover:opacity-100 transition-opacity opacity-50"></div>
                 <div className="relative z-10 flex flex-col items-center w-full text-center">
-                  <div className="w-24 h-24 bg-amber-950/50 rounded-full flex items-center justify-center mb-6 border border-amber-800/50 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                    <img src="/modo aventura.png" alt="Modo Aventura" className="w-14 h-14 object-contain" />
+                  <div className="w-16 h-16 sm:w-24 sm:h-24 bg-amber-950/50 rounded-full flex items-center justify-center mb-4 sm:mb-6 border border-amber-800/50 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                    <img src="/modo aventura.png" alt="Modo Aventura" className="w-10 h-10 sm:w-14 sm:h-14 object-contain" />
                   </div>
-                  <h2 className="text-3xl font-black text-amber-400 mb-4 uppercase tracking-widest drop-shadow-lg">Modo Aventura</h2>
-                  <p className="text-slate-400 text-sm mb-8 leading-relaxed px-4">Enfréntate a la IA en una serie de duelos continuos. Desbloquea nuevas cartas cada 5 victorias, domina las disciplinas y demuestra tu conocimiento estratégico.</p>
+                  <h2 className="text-2xl sm:text-3xl font-black text-amber-400 mb-2 sm:mb-4 uppercase tracking-widest drop-shadow-lg">Modo Aventura</h2>
+                  <p className="text-slate-400 text-xs sm:text-sm mb-4 sm:mb-8 leading-relaxed px-2 sm:px-4">Enfréntate a la IA en una serie de duelos continuos. Desbloquea nuevas cartas cada 5 victorias, domina las disciplinas y demuestra tu conocimiento estratégico.</p>
                 </div>
                 <div className="relative z-10 w-full mt-auto">
-                  <button onClick={startAdventure} className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 py-4 rounded-xl font-black transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] transform hover:-translate-y-1 flex items-center justify-center space-x-3 cursor-pointer text-lg tracking-widest">
-                    <img src="/symbols/batalla.png" className="w-5 h-5 object-contain" alt="" />
+                  <button onClick={startAdventure} className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 py-3 sm:py-4 rounded-xl font-black transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] transform hover:-translate-y-1 flex items-center justify-center space-x-3 cursor-pointer text-base sm:text-lg tracking-widest">
+                    <img src="/symbols/batalla.png" className="w-4 h-4 sm:w-5 sm:h-5 object-contain" alt="" />
                     <span>INICIAR AVENTURA</span>
-                    <img src="/symbols/batalla.png" className="w-5 h-5 object-contain" alt="" />
+                    <img src="/symbols/batalla.png" className="w-4 h-4 sm:w-5 sm:h-5 object-contain" alt="" />
                   </button>
                 </div>
               </div>
 
-              <div className="bg-slate-900/80 p-8 rounded-3xl shadow-[0_0_40px_rgba(59,130,246,0.05)] border border-blue-900/30 flex flex-col items-center justify-between relative overflow-hidden group backdrop-blur-sm min-h-[400px]">
+              <div className="bg-slate-900/80 p-6 sm:p-8 rounded-3xl shadow-[0_0_40px_rgba(59,130,246,0.05)] border border-blue-900/30 flex flex-col items-center justify-between relative overflow-hidden group backdrop-blur-sm min-h-[350px] sm:min-h-[400px]">
                 <div className="absolute inset-0 bg-gradient-to-bl from-blue-500/5 to-indigo-500/5 z-0 group-hover:opacity-100 transition-opacity opacity-50"></div>
                 <div className="relative z-10 flex flex-col items-center w-full text-center">
-                  <div className="w-24 h-24 bg-blue-950/50 rounded-full flex items-center justify-center mb-6 border border-blue-800/50 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                    <span className="text-5xl">🌐</span>
+                  <div className="w-16 h-16 sm:w-24 sm:h-24 bg-blue-950/50 rounded-full flex items-center justify-center mb-4 sm:mb-6 border border-blue-800/50 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                    <span className="text-3xl sm:text-5xl">🌐</span>
                   </div>
-                  <h2 className="text-3xl font-black text-blue-400 mb-4 uppercase tracking-widest drop-shadow-lg">Multijugador</h2>
-                  <p className="text-slate-400 text-sm mb-8 leading-relaxed px-4">Desafía a otros duelistas en línea. Crea una sala privada para invitar a tus amigos o únete a una batalla existente mediante su código de acceso.</p>
+                  <h2 className="text-2xl sm:text-3xl font-black text-blue-400 mb-2 sm:mb-4 uppercase tracking-widest drop-shadow-lg">Multijugador</h2>
+                  <p className="text-slate-400 text-xs sm:text-sm mb-4 sm:mb-8 leading-relaxed px-2 sm:px-4">Desafía a otros duelistas en línea. Crea una sala privada para invitar a tus amigos o únete a una batalla existente mediante su código de acceso.</p>
                 </div>
-                <div className="relative z-10 w-full mt-auto space-y-5">
-                  <button onClick={createRoom} className="w-full bg-blue-600 hover:bg-blue-500 py-3.5 rounded-xl font-bold transition-all border border-blue-400/30 shadow-[0_0_15px_rgba(37,99,235,0.2)] hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] cursor-pointer tracking-wider">
+                <div className="relative z-10 w-full mt-auto space-y-3 sm:space-y-5">
+                  <button onClick={createRoom} className="w-full bg-blue-600 hover:bg-blue-500 py-2.5 sm:py-3.5 rounded-xl font-bold transition-all border border-blue-400/30 shadow-[0_0_15px_rgba(37,99,235,0.2)] hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] cursor-pointer tracking-wider text-xs sm:text-sm">
                     CREAR SALA PRIVADA
                   </button>
                   <div className="relative flex items-center w-full">
                     <div className="flex-grow border-t border-slate-700/80"></div>
-                    <span className="flex-shrink mx-4 text-slate-500 text-[10px] font-mono tracking-widest uppercase">O Únete a Una</span>
+                    <span className="flex-shrink mx-3 text-slate-500 text-[9px] sm:text-[10px] font-mono tracking-widest uppercase">O Únete a Una</span>
                     <div className="flex-grow border-t border-slate-700/80"></div>
                   </div>
-                  <div className="flex w-full space-x-3">
-                    <input type="text" placeholder="ID SALA" value={roomIdInput} onChange={(e) => setRoomIdInput(e.target.value.toUpperCase())} className="w-2/3 bg-slate-950/80 border border-slate-700 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase text-center font-mono font-bold placeholder-slate-700 tracking-widest text-lg shadow-inner transition-all" />
-                    <button onClick={joinRoom} className="w-1/3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-black transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] flex items-center justify-center cursor-pointer tracking-wider text-sm">
+                  <div className="flex w-full space-x-2 sm:space-x-3">
+                    <input type="text" placeholder="ID SALA" value={roomIdInput} onChange={(e) => setRoomIdInput(e.target.value.toUpperCase())} className="w-2/3 bg-slate-950/80 border border-slate-700 p-2.5 sm:p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase text-center font-mono font-bold placeholder-slate-700 tracking-widest text-base sm:text-lg shadow-inner transition-all" />
+                    <button onClick={joinRoom} className="w-1/3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-black transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] flex items-center justify-center cursor-pointer tracking-wider text-xs sm:text-sm">
                       ENTRAR
                     </button>
                   </div>
@@ -1312,17 +1317,17 @@ function GamePage() {
                 </div>
               </div>
 
-              <div className="bg-slate-900/80 p-8 rounded-3xl shadow-[0_0_40px_rgba(16,185,129,0.05)] border border-emerald-900/30 flex flex-col items-center justify-between relative overflow-hidden group backdrop-blur-sm min-h-[400px]">
+              <div className="bg-slate-900/80 p-6 sm:p-8 rounded-3xl shadow-[0_0_40px_rgba(16,185,129,0.05)] border border-emerald-900/30 flex flex-col items-center justify-between relative overflow-hidden group backdrop-blur-sm min-h-[350px] sm:min-h-[400px]">
                 <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 z-0 group-hover:opacity-100 transition-opacity opacity-50"></div>
                 <div className="relative z-10 flex flex-col items-center w-full text-center">
-                  <div className="w-24 h-24 bg-emerald-950/50 rounded-full flex items-center justify-center mb-6 border border-emerald-800/50 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                    <span className="text-5xl">📖</span>
+                  <div className="w-16 h-16 sm:w-24 sm:h-24 bg-emerald-950/50 rounded-full flex items-center justify-center mb-4 sm:mb-6 border border-emerald-800/50 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                    <span className="text-3xl sm:text-5xl">📖</span>
                   </div>
-                  <h2 className="text-3xl font-black text-emerald-400 mb-4 uppercase tracking-widest drop-shadow-lg">Manual de Juego</h2>
-                  <p className="text-slate-400 text-sm mb-8 leading-relaxed px-4">Conoce todas las reglas, estrategias y secretos de las disciplinas académicas. Domina las mecánicas y los iconos para asegurar la victoria.</p>
+                  <h2 className="text-2xl sm:text-3xl font-black text-emerald-400 mb-2 sm:mb-4 uppercase tracking-widest drop-shadow-lg">Manual de Juego</h2>
+                  <p className="text-slate-400 text-xs sm:text-sm mb-4 sm:mb-8 leading-relaxed px-2 sm:px-4">Conoce todas las reglas, estrategias y secretos de las disciplinas académicas. Domina las mecánicas y los iconos para asegurar la victoria.</p>
                 </div>
                 <div className="relative z-10 w-full mt-auto">
-                  <button onClick={() => setMainMenuTab('MANUAL')} className="w-full bg-emerald-600 hover:bg-emerald-500 py-3.5 rounded-xl font-bold transition-all border border-emerald-400/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] cursor-pointer tracking-wider">
+                  <button onClick={() => setMainMenuTab('MANUAL')} className="w-full bg-emerald-600 hover:bg-emerald-500 py-2.5 sm:py-3.5 rounded-xl font-bold transition-all border border-emerald-400/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] cursor-pointer tracking-wider text-xs sm:text-sm">
                     LEER MANUAL
                   </button>
                 </div>
@@ -1811,10 +1816,26 @@ function GamePage() {
       <div className={`flex h-screen ${currentTheme?.root || 'bg-slate-950'} text-white font-sans overflow-hidden relative ${isLightMode ? 'light' : ''}`}>
         <div className={`absolute inset-0 bg-gradient-to-br ${currentDeckStyle.gradient} opacity-40 transition-colors duration-1000`} />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/20 via-slate-900/80 to-black z-0 pointer-events-none" />
-        <div className="flex-grow flex p-4 gap-6 backdrop-blur-sm relative z-10 h-full overflow-hidden">
+        <div className="flex-grow flex flex-col md:flex-row p-2 sm:p-4 gap-4 md:gap-6 backdrop-blur-sm relative z-10 h-full overflow-hidden">
           
+          {/* Mobile Tab Switcher */}
+          <div className="flex md:hidden bg-slate-900/60 p-1.5 rounded-2xl border border-slate-800/80 w-full mb-1">
+            <button 
+              onClick={() => setActiveDeckTab('CATALOG')} 
+              className={`flex-1 py-2 text-center text-xs font-black uppercase tracking-wider rounded-xl transition-all ${activeDeckTab === 'CATALOG' ? 'bg-blue-600/90 text-white shadow-lg' : 'text-slate-400'}`}
+            >
+              Catálogo
+            </button>
+            <button 
+              onClick={() => setActiveDeckTab('DECK')} 
+              className={`flex-1 py-2 text-center text-xs font-black uppercase tracking-wider rounded-xl transition-all ${activeDeckTab === 'DECK' ? 'bg-amber-600/90 text-white shadow-lg' : 'text-slate-400'}`}
+            >
+              Tu Mazo ({selectedCards.length})
+            </button>
+          </div>
+
           {/* Left Side: Card Catalog */}
-          <div className="flex-grow flex flex-col w-2/3 h-full overflow-hidden bg-slate-900/60 rounded-3xl border border-slate-700/50 shadow-2xl backdrop-blur-md">
+          <div className={`flex-grow flex flex-col md:w-2/3 h-full overflow-hidden bg-slate-900/60 rounded-3xl border border-slate-700/50 shadow-2xl backdrop-blur-md ${activeDeckTab === 'CATALOG' ? 'flex' : 'hidden md:flex'}`}>
             <div className="p-6 border-b border-slate-700/50 flex justify-between items-center">
               <div>
                 <h2 className="text-3xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 drop-shadow-sm">Catálogo</h2>
@@ -1899,7 +1920,7 @@ function GamePage() {
           </div>
 
           {/* Right Side: Selected Deck */}
-          <div className={`w-1/3 flex flex-col h-full bg-slate-950/90 rounded-3xl border ${currentDeckStyle.border} ${currentDeckStyle.glow} backdrop-blur-xl overflow-hidden relative transition-all duration-700`}>
+          <div className={`w-full md:w-1/3 flex flex-col h-full bg-slate-950/90 rounded-3xl border ${currentDeckStyle.border} ${currentDeckStyle.glow} backdrop-blur-xl overflow-hidden relative transition-all duration-700 ${activeDeckTab === 'DECK' ? 'flex' : 'hidden md:flex'}`}>
             <div className={`p-6 border-b border-slate-800 flex justify-between items-center bg-gradient-to-r ${currentDeckStyle.gradient} transition-colors duration-700`}>
               <div className="flex items-center space-x-3">
                 {currentDeckStyle.icon.startsWith('/') ? (
@@ -2236,13 +2257,13 @@ function GamePage() {
           ))}
         </div>
 
-        <div className="flex-grow flex flex-col justify-center gap-4 sm:gap-6 items-center z-10 pointer-events-none transform scale-[0.75] sm:scale-[0.85] md:scale-95 lg:scale-100 origin-center py-2">
+        <div className="flex-grow flex flex-col justify-center gap-3 sm:gap-6 items-center z-10 pointer-events-none transform scale-[0.62] min-[390px]:scale-[0.72] sm:scale-[0.85] md:scale-95 lg:scale-100 origin-center py-2">
           
           <div className="grid grid-cols-3 gap-4 sm:gap-6 w-full max-w-2xl justify-items-center pointer-events-auto">
             {[0, 1, 2].map(i => {
               const m = opponent?.monsterZone?.[i];
               return (
-                <div key={`opp-slot-${i}`} onClick={() => handleOpponentSlotClick(i)} className="w-24 h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 flex items-center justify-center relative cursor-pointer">
+                <div key={`opp-slot-${i}`} onClick={() => handleOpponentSlotClick(i)} className="w-20 h-28 min-[380px]:w-24 min-[380px]:h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 flex items-center justify-center relative cursor-pointer">
                   <motion.div variants={layer3SlotVariants as any} className="absolute inset-0 rounded-2xl -z-10" />
                   <AnimatePresence mode="popLayout">
                     {m && (
@@ -2270,7 +2291,7 @@ function GamePage() {
               const m = me?.monsterZone?.[i];
               const isSelectedTarget = selectedActionCard && me?.hand.find(c => c.id === selectedActionCard)?.type === 'MONSTER' && !m;
               return (
-                <div key={`my-slot-${i}`} onClick={() => handleMySlotClick(i)} className={`w-24 h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 flex items-center justify-center relative cursor-pointer hover:-translate-y-2 transition-transform ${isSelectedTarget ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}>
+                <div key={`my-slot-${i}`} onClick={() => handleMySlotClick(i)} className={`w-20 h-28 min-[380px]:w-24 min-[380px]:h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 flex items-center justify-center relative cursor-pointer hover:-translate-y-2 transition-transform ${isSelectedTarget ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}>
                   <motion.div variants={layer3SlotVariants as any} className="absolute inset-0 rounded-2xl -z-10" />
                   <AnimatePresence mode="popLayout">
                     {m && (
@@ -2293,11 +2314,11 @@ function GamePage() {
           </div>
         </div>
 
-        <div className="flex-shrink-0 w-full p-4 sm:p-6 flex justify-between items-end z-20 pointer-events-none bg-transparent">
-          <div className="flex space-x-6 items-end pointer-events-auto">
+        <div className="flex-shrink-0 w-full p-3 sm:p-6 flex flex-col md:flex-row justify-between items-stretch md:items-end gap-4 z-20 pointer-events-none bg-transparent">
+          <div className="flex space-x-4 md:space-x-6 items-end pointer-events-auto w-full md:w-auto justify-center md:justify-start">
             
-            <div className="flex flex-col items-center justify-center">
-              <div className="text-center mb-2">
+            <div className="flex flex-col items-center justify-center flex-shrink-0">
+              <div className="text-center mb-1.5 sm:mb-2">
                 <span className="bg-slate-950/80 px-3 py-1 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-widest border border-slate-700">
                   Mazo: {me?.deck.length || 0}
                 </span>
@@ -2314,9 +2335,9 @@ function GamePage() {
               </button>
             </div>
 
-            <div className="w-px h-24 sm:h-32 bg-slate-800 mx-2"></div>
+            <div className="hidden sm:block w-px h-24 sm:h-32 bg-slate-800 mx-2"></div>
 
-            <div className="flex space-x-4 overflow-x-auto custom-scrollbar px-2 pb-2 max-w-[50vw]">
+            <div className="flex space-x-3 sm:space-x-4 overflow-x-auto custom-scrollbar px-2 pb-2 max-w-[calc(100vw-90px)] sm:max-w-[calc(100vw-120px)] md:max-w-[50vw] lg:max-w-[60vw] w-full">
               <AnimatePresence>
                 {me?.hand.map((card, i) => (
                 <motion.button 
@@ -2328,7 +2349,7 @@ function GamePage() {
                   transition={{ type: 'spring', stiffness: 200, damping: 15 }}
                   onClick={() => handleHandCardClick(card)}
                   disabled={!isMyTurn || isActionLocked}
-                  className={`group relative transition-all duration-300 hover:-translate-y-6 hover:scale-105 disabled:hover:translate-y-0 disabled:hover:scale-100 text-left flex-shrink-0 w-24 h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 ${selectedActionCard === card.id ? '-translate-y-6 ring-4 ring-blue-500 rounded-xl shadow-2xl' : 'hover:shadow-2xl hover:shadow-blue-900/50'}`}
+                  className={`group relative transition-all duration-300 hover:-translate-y-6 hover:scale-105 disabled:hover:translate-y-0 disabled:hover:scale-100 text-left flex-shrink-0 w-20 h-28 min-[380px]:w-24 min-[380px]:h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 ${selectedActionCard === card.id ? '-translate-y-6 ring-4 ring-blue-500 rounded-xl shadow-2xl' : 'hover:shadow-2xl hover:shadow-blue-900/50'}`}
                 >
                   <GameCardContent card={card} onPreview={() => setPreviewCardId(card.id)} />
                   {isMyTurn && !isActionLocked && selectedActionCard !== card.id && (
@@ -2349,9 +2370,9 @@ function GamePage() {
             </div>
           </div>
 
-          <div className="flex flex-col items-end space-y-4 z-20 pointer-events-auto mb-2">
-            <div id="avatar-my" className="bg-slate-900/80 backdrop-blur-sm px-6 py-2 rounded-full border border-blue-900/50 shadow-inner flex items-center space-x-4">
-              <p className="text-2xl font-mono font-bold text-blue-500 tracking-tighter">
+          <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-end gap-2 md:gap-4 z-20 pointer-events-auto w-full md:w-auto mb-2">
+            <div id="avatar-my" className="bg-slate-900/80 backdrop-blur-sm px-4 py-1.5 sm:px-6 sm:py-2 rounded-full border border-blue-900/50 shadow-inner flex items-center space-x-3 sm:space-x-4">
+              <p className="text-xl sm:text-2xl font-mono font-bold text-blue-500 tracking-tighter">
                 <AnimatedNumber value={me?.hp || 0} /> LP
                 {animatingCard?.secondaryTargetId === playerId && (
                   <span className="text-orange-500 ml-2 animate-pulse">-{animatingCard?.secondaryDamage}</span>
@@ -2363,42 +2384,53 @@ function GamePage() {
               <div className="w-px h-4 bg-slate-700"></div>
               <div className="flex space-x-1">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className={`w-4 h-4 transition-all duration-300 ${i < (me?.energy || 0) ? 'opacity-100 drop-shadow-[0_0_8px_rgba(59,130,246,0.8)] animate-pulse' : 'opacity-30 grayscale'}`}>
+                  <div key={i} className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-all duration-300 ${i < (me?.energy || 0) ? 'opacity-100 drop-shadow-[0_0_8px_rgba(59,130,246,0.8)] animate-pulse' : 'opacity-30 grayscale'}`}>
                     <img src="/symbols/energia.png" className="w-full h-full object-contain" alt="Energy" />
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="flex space-x-4">
+            <div className="flex space-x-2 sm:space-x-4">
               {selectedActionCard && (
-                <button onClick={() => { setSelectedActionCard(null); }} className="bg-red-600/80 hover:bg-red-500 border border-red-500 px-8 py-2 rounded-lg font-bold transition-all shadow-lg shadow-red-900/20 uppercase text-sm tracking-widest">
-                  Cancelar Acción
+                <button onClick={() => { setSelectedActionCard(null); }} className="bg-red-600/80 hover:bg-red-500 border border-red-500 px-3 py-2 sm:px-8 sm:py-2 rounded-lg font-bold transition-all shadow-lg shadow-red-900/20 uppercase text-xs sm:text-sm tracking-widest">
+                  Cancelar
                 </button>
               )}
               <button 
                 onClick={executeAttacks} 
                 disabled={!isMyTurn || isActionLocked || gameState.isFirstTurn || !me?.monsterZone.some(m => m && !m.hasAttacked)} 
-                className="bg-red-600 hover:bg-red-500 disabled:bg-slate-800 disabled:text-slate-500 px-8 py-2 rounded-lg font-bold transition-all border border-red-500 disabled:border-slate-700 shadow-[0_0_15px_rgba(220,38,38,0.2)] disabled:shadow-none uppercase text-sm tracking-widest"
+                className="bg-red-600 hover:bg-red-500 disabled:bg-slate-800 disabled:text-slate-500 px-3 py-2 sm:px-8 sm:py-2 rounded-lg font-bold transition-all border border-red-500 disabled:border-slate-700 shadow-[0_0_15px_rgba(220,38,38,0.2)] disabled:shadow-none uppercase text-xs sm:text-sm tracking-widest"
               >
                 Atacar
               </button>
-              <button onClick={endTurn} disabled={!isMyTurn || isActionLocked} className="bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 px-8 py-2 rounded-lg font-bold transition-all border border-slate-600 uppercase text-sm tracking-widest">
-                Terminar Turno
+              <button onClick={endTurn} disabled={!isMyTurn || isActionLocked} className="bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 px-3 py-2 sm:px-8 sm:py-2 rounded-lg font-bold transition-all border border-slate-600 uppercase text-xs sm:text-sm tracking-widest">
+                Pasar
               </button>
             </div>
           </div>
         </div>
 
-        <div className={`absolute top-4 right-4 px-6 py-2 rounded-full border transition-all ${isMyTurn ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-red-600/20 border-red-500 text-red-400'}`}>
-          <span className="font-bold uppercase tracking-widest text-sm animate-pulse">{isMyTurn ? 'Tu Turno' : 'Turno Oponente'}</span>
+        <div className={`absolute top-3 right-3 sm:top-4 sm:right-4 px-4 py-1.5 sm:px-6 sm:py-2 rounded-full border transition-all ${isMyTurn ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-red-600/20 border-red-500 text-red-400'}`}>
+          <span className="font-bold uppercase tracking-widest text-xs sm:text-sm animate-pulse">{isMyTurn ? 'Tu Turno' : 'Turno Oponente'}</span>
         </div>
+
+        <button 
+          onClick={() => setShowMobileLog(true)} 
+          className="md:hidden absolute top-14 right-3 bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700 w-10 h-10 rounded-full flex items-center justify-center z-20 shadow-lg pointer-events-auto"
+          title="Ver Historial"
+        >
+          📜
+        </button>
       </div>
 
-      <div className={`w-80 border-l flex-shrink-0 z-50 flex flex-col transition-all duration-500 ${currentTheme?.sidebar || 'bg-slate-900 border-slate-800'}`}>
+      <div className={`fixed md:relative top-0 right-0 h-full w-80 border-l flex-shrink-0 z-50 flex flex-col transition-all duration-300 ${currentTheme?.sidebar || 'bg-slate-900 border-slate-800'} ${showMobileLog ? 'translate-x-0 shadow-2xl' : 'translate-x-full md:translate-x-0'}`}>
         <div className="p-4 border-b border-slate-800 bg-slate-800/50 flex justify-between items-center">
           <h3 className="font-bold text-slate-300 uppercase tracking-widest text-xs">Registro de Duelo</h3>
-          <button onClick={() => setShowExitConfirm(true)} className="text-[10px] text-red-500 hover:text-red-400 uppercase cursor-pointer">Salir</button>
+          <div className="flex items-center space-x-3">
+            <button onClick={() => setShowExitConfirm(true)} className="text-[10px] text-red-500 hover:text-red-400 uppercase cursor-pointer">Salir</button>
+            <button onClick={() => setShowMobileLog(false)} className="md:hidden text-[10px] text-slate-400 hover:text-white uppercase cursor-pointer">Cerrar</button>
+          </div>
         </div>
         <div className="flex-grow overflow-y-auto p-4 space-y-2 font-mono text-xs">
           {gameState.logs.map((log, i) => (
@@ -2680,24 +2712,24 @@ function GameCardContent({ card, isOpponent, defensePercentage = 100, isTakingDa
 
   return (
     <div 
-      className={`w-full h-full rounded-xl border-[6px] ${borderColor} bg-[#0a0f1d] flex flex-col overflow-hidden relative group cursor-pointer ${className} ${isOpponent ? 'opacity-90' : ''}`}
+      className={`w-full h-full rounded-xl border-[4px] min-[380px]:border-[6px] ${borderColor} bg-[#0a0f1d] flex flex-col overflow-hidden relative group cursor-pointer ${className} ${isOpponent ? 'opacity-90' : ''}`}
     >
       {/* Inner thin grey border */}
       <div className="absolute inset-0.5 rounded-lg border border-slate-600/60 pointer-events-none z-20"></div>
 
       {/* Header */}
-      <div className={`flex items-center justify-between ${isExpanded ? 'px-4 py-3' : 'px-3 py-1.5'} z-10 border-b border-slate-800/50`}>
-        <div className="flex items-center gap-2 truncate max-w-[65%]">
+      <div className={`flex items-center justify-between ${isExpanded ? 'px-4 py-3' : 'px-1.5 py-1 min-[380px]:px-3 min-[380px]:py-1.5'} z-10 border-b border-slate-800/50`}>
+        <div className="flex items-center gap-1 min-[380px]:gap-2 truncate max-w-[65%]">
           <span className={`flex items-center justify-center font-bold ${isExpanded ? 'text-xl' : ''}`}>
             {card.type === 'MONSTER' ? (
-              <img src="/symbols/monster.png" className={`${isExpanded ? 'w-6 h-6' : 'w-4 h-4'} object-contain`} alt="Monstruo" />
+              <img src="/symbols/monster.png" className={`${isExpanded ? 'w-6 h-6' : 'w-3 h-3 min-[380px]:w-4 min-[380px]:h-4'} object-contain`} alt="Monstruo" />
             ) : ['s11', 's13', 's16', 's19', 's22'].includes(card.id) ? (
-              <span className={isExpanded ? 'text-[20px]' : 'text-[14px]'}>⚠️</span>
+              <span className={isExpanded ? 'text-[20px]' : 'text-[11px] min-[380px]:text-[14px]'}>⚠️</span>
             ) : (
-              <img src="/symbols/spell.png" className={`${isExpanded ? 'w-6 h-6' : 'w-4 h-4'} object-contain`} alt="Hechizo" />
+              <img src="/symbols/spell.png" className={`${isExpanded ? 'w-6 h-6' : 'w-3 h-3 min-[380px]:w-4 min-[380px]:h-4'} object-contain`} alt="Hechizo" />
             )}
           </span>
-          <span className={`${isExpanded ? 'text-lg' : 'text-[10px]'} font-serif font-bold text-slate-200 truncate`}>{card.name}</span>
+          <span className={`${isExpanded ? 'text-lg' : 'text-[8px] min-[380px]:text-[10px]'} font-serif font-bold text-slate-200 truncate`}>{card.name}</span>
         </div>
         <div className="flex items-center gap-0.5 z-20">
           {getCardCareers(card.area).map(career => (
@@ -2705,14 +2737,14 @@ function GameCardContent({ card, isOpponent, defensePercentage = 100, isTakingDa
               key={career}
               src={`/symbols/${career}.png`} 
               alt={career} 
-              className={`${isExpanded ? 'w-5 h-5' : 'w-3.5 h-3.5'} object-contain filter drop-shadow-[0_0_2px_rgba(255,255,255,0.4)]`}
+              className={`${isExpanded ? 'w-5 h-5' : 'w-2.5 h-2.5 min-[380px]:w-3.5 min-[380px]:h-3.5'} object-contain filter drop-shadow-[0_0_2px_rgba(255,255,255,0.4)]`}
             />
           ))}
         </div>
       </div>
 
       {/* Main Image Box */}
-      <div className="mx-1.5 mt-1.5 bg-[#1c2438] h-[45%] rounded flex items-center justify-center relative overflow-hidden z-10 border-t border-slate-600/30 shadow-inner group/image">
+      <div className="mx-1 mt-1 min-[380px]:mx-1.5 min-[380px]:mt-1.5 bg-[#1c2438] h-[45%] rounded flex items-center justify-center relative overflow-hidden z-10 border-t border-slate-600/30 shadow-inner group/image">
         {!imgError ? (
           <img 
             src={`/cards/${card.name}.jpg`} 
@@ -2726,11 +2758,11 @@ function GameCardContent({ card, isOpponent, defensePercentage = 100, isTakingDa
             <img 
               src="/symbols/logo_universidad.png" 
               alt="Logo Universidad" 
-              className={`${isExpanded ? 'w-48 h-48' : 'w-24 h-24'} opacity-15 absolute select-none pointer-events-none object-contain`} 
+              className={`${isExpanded ? 'w-48 h-48' : 'w-16 h-16 min-[380px]:w-24 min-[380px]:h-24'} opacity-15 absolute select-none pointer-events-none object-contain`} 
             />
             
             {/* Card Name Centered */}
-            <p className={`text-center ${isExpanded ? 'text-2xl' : 'text-xs'} font-serif font-bold text-slate-200 z-10 px-2 drop-shadow-md`}>
+            <p className={`text-center ${isExpanded ? 'text-2xl' : 'text-[9px] min-[380px]:text-xs'} font-serif font-bold text-slate-200 z-10 px-1 min-[380px]:px-2 drop-shadow-md`}>
               {card.name}
             </p>
           </>
@@ -2739,25 +2771,25 @@ function GameCardContent({ card, isOpponent, defensePercentage = 100, isTakingDa
         {onPreview && !isExpanded && (
           <div 
             onClick={(e) => { e.stopPropagation(); onPreview(); }}
-            className="absolute bottom-1 left-1 w-6 h-6 flex items-center justify-center cursor-pointer z-50 hover:scale-110 transition-all opacity-0 group-hover:opacity-100 bg-[#0a0f1d]/90 rounded-full p-1 border border-blue-500/50 shadow-lg">
+            className="absolute bottom-1 left-1 w-5 h-5 min-[380px]:w-6 min-[380px]:h-6 flex items-center justify-center cursor-pointer z-50 hover:scale-110 transition-all opacity-0 group-hover:opacity-100 bg-[#0a0f1d]/90 rounded-full p-1 border border-blue-500/50 shadow-lg">
             <img src="/symbols/lupa.png" alt="Ampliar" className="w-full h-full object-contain drop-shadow-md" />
           </div>
         )}
       </div>
 
       {/* Description & Academic Info Text */}
-      <div className={`${isExpanded ? 'px-4 py-3' : 'px-2 py-1.5'} flex-grow z-10 overflow-hidden flex flex-col`}>
+      <div className={`${isExpanded ? 'px-4 py-3' : 'px-1 py-1 min-[380px]:px-2 min-[380px]:py-1.5'} flex-grow z-10 overflow-hidden flex flex-col`}>
         {/* Career & Subject Section */}
         {(card.area || (card as any).academicMetadata?.academicConcept) && (
-          <div className="flex flex-wrap gap-1 mb-1.5">
+          <div className="flex flex-wrap gap-0.5 min-[380px]:gap-1 mb-1 min-[380px]:mb-1.5">
             {card.area && (
-              <span className={`bg-emerald-900/60 border border-emerald-700 text-emerald-300 ${isExpanded ? 'text-[10px] px-2 py-1' : 'text-[6px] px-1.5 py-0.5'} font-bold rounded-sm uppercase tracking-wider shadow-sm`}>
+              <span className={`bg-emerald-900/60 border border-emerald-700 text-emerald-300 ${isExpanded ? 'text-[10px] px-2 py-1' : 'text-[5px] px-1 py-0.5 min-[380px]:text-[6px] min-[380px]:px-1.5 min-[380px]:py-0.5'} font-bold rounded-sm uppercase tracking-wider shadow-sm`}>
                 🎓 {card.area}
               </span>
             )}
             {(card as any).academicMetadata?.academicConcept && (
-              <span className={`bg-blue-900/60 border border-blue-700 text-blue-300 ${isExpanded ? 'text-[10px] px-2 py-1' : 'text-[6px] px-1.5 py-0.5'} font-bold rounded-sm uppercase tracking-wider shadow-sm flex items-center gap-1`}>
-                <img src="/symbols/concepto.png" className={`${isExpanded ? 'w-3.5 h-3.5' : 'w-2.5 h-2.5'} object-contain`} alt="" />
+              <span className={`bg-blue-900/60 border border-blue-700 text-blue-300 ${isExpanded ? 'text-[10px] px-2 py-1' : 'text-[5px] px-1 py-0.5 min-[380px]:text-[6px] min-[380px]:px-1.5 min-[380px]:py-0.5'} font-bold rounded-sm uppercase tracking-wider shadow-sm flex items-center gap-0.5 min-[380px]:gap-1`}>
+                <img src="/symbols/concepto.png" className={`${isExpanded ? 'w-3.5 h-3.5' : 'w-2 h-2 min-[380px]:w-2.5 min-[380px]:h-2.5'} object-contain`} alt="" />
                 {(card as any).academicMetadata?.academicConcept}
               </span>
             )}
@@ -2765,12 +2797,12 @@ function GameCardContent({ card, isOpponent, defensePercentage = 100, isTakingDa
         )}
         
         <div className="flex-grow flex flex-col">
-          <p className={`${isExpanded ? 'text-[14px] leading-snug line-clamp-none overflow-y-auto custom-scrollbar' : 'text-[7.5px] leading-tight line-clamp-5'} text-slate-300 font-serif text-justify`}>
+          <p className={`${isExpanded ? 'text-[14px] leading-snug line-clamp-none overflow-y-auto custom-scrollbar' : 'text-[6px] min-[380px]:text-[7.5px] leading-tight line-clamp-4 min-[380px]:line-clamp-5'} text-slate-300 font-serif text-justify`}>
             {card.description}
           </p>
           {(card as any).academicMetadata?.academicConcept && (
-            <div className={`mt-auto pt-1 border-t border-slate-700/50 ${isExpanded ? 'mt-4 pt-3' : ''}`}>
-              <p className={`${isExpanded ? 'text-[12px]' : 'text-[6.5px]'} text-blue-300/90 italic font-serif leading-tight`}>
+            <div className={`mt-auto pt-0.5 border-t border-slate-700/50 ${isExpanded ? 'mt-4 pt-3' : ''}`}>
+              <p className={`${isExpanded ? 'text-[12px]' : 'text-[5px] min-[380px]:text-[6.5px]'} text-blue-300/90 italic font-serif leading-tight`}>
                 <span className="font-bold">Concepto:</span> {(card as any).academicMetadata?.academicConcept}
               </p>
             </div>
@@ -2780,22 +2812,22 @@ function GameCardContent({ card, isOpponent, defensePercentage = 100, isTakingDa
 
       {/* Stats Bottom */}
       {card.type === 'MONSTER' ? (
-        <div className={`flex w-full ${isExpanded ? 'h-[12%] min-h-[50px]' : 'h-[15%] min-h-[36px]'} border-t border-slate-800 z-10 mt-auto bg-black/80`}>
+        <div className={`flex w-full ${isExpanded ? 'h-[12%] min-h-[50px]' : 'h-[15%] min-h-[26px] min-[380px]:min-h-[36px]'} border-t border-slate-800 z-10 mt-auto bg-black/80`}>
           <div className="flex-1 border-r border-slate-800 flex flex-col items-center justify-center">
-            <span className={`${isExpanded ? 'text-[12px]' : 'text-[7px]'} font-bold text-red-600 drop-shadow-[0_0_2px_rgba(220,38,38,0.8)] tracking-widest`}>ATK</span>
-            <span className={`${isExpanded ? 'text-3xl mt-1' : 'text-base mt-0.5'} font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(220,38,38,0.5)] leading-none`}>{card.attack}</span>
+            <span className={`${isExpanded ? 'text-[12px]' : 'text-[5.5px] min-[380px]:text-[7px]'} font-bold text-red-600 drop-shadow-[0_0_2px_rgba(220,38,38,0.8)] tracking-widest`}>ATK</span>
+            <span className={`${isExpanded ? 'text-3xl mt-1' : 'text-xs min-[380px]:text-base mt-0.5'} font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(220,38,38,0.5)] leading-none`}>{card.attack}</span>
           </div>
           <div className="flex-1 flex flex-col items-center justify-center relative overflow-hidden">
             {/* Health Bar overlay */}
             <div className="absolute bottom-0 left-0 h-0.5 bg-blue-500/50 transition-all duration-300" style={{ width: `${defensePercentage}%` }}></div>
-            <span className={`${isExpanded ? 'text-[12px]' : 'text-[7px]'} font-bold text-blue-500 drop-shadow-[0_0_2px_rgba(59,130,246,0.8)] tracking-widest`}>DEF</span>
-            <span className={`${isExpanded ? 'text-3xl mt-1' : 'text-base mt-0.5'} font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(59,130,246,0.5)] leading-none`}><AnimatedNumber value={card.defense} /></span>
+            <span className={`${isExpanded ? 'text-[12px]' : 'text-[5.5px] min-[380px]:text-[7px]'} font-bold text-blue-500 drop-shadow-[0_0_2px_rgba(59,130,246,0.8)] tracking-widest`}>DEF</span>
+            <span className={`${isExpanded ? 'text-3xl mt-1' : 'text-xs min-[380px]:text-base mt-0.5'} font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(59,130,246,0.5)] leading-none`}><AnimatedNumber value={card.defense} /></span>
           </div>
         </div>
       ) : (
-        <div className={`flex w-full ${isExpanded ? 'h-[12%] min-h-[50px]' : 'h-[15%] min-h-[36px]'} border-t border-slate-800 z-10 mt-auto bg-black/80 items-center justify-center`}>
-          <span className={`${isExpanded ? 'text-[12px]' : 'text-[9px]'} font-bold text-emerald-500 drop-shadow-[0_0_2px_rgba(16,185,129,0.8)] tracking-widest mr-2`}>COSTE</span>
-          <span className={`${isExpanded ? 'text-3xl' : 'text-base'} font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(16,185,129,0.5)] leading-none`}>{card.energyCost}⚡</span>
+        <div className={`flex w-full ${isExpanded ? 'h-[12%] min-h-[50px]' : 'h-[15%] min-h-[26px] min-[380px]:min-h-[36px]'} border-t border-slate-800 z-10 mt-auto bg-black/80 items-center justify-center`}>
+          <span className={`${isExpanded ? 'text-[12px]' : 'text-[7px] min-[380px]:text-[9px]'} font-bold text-emerald-500 drop-shadow-[0_0_2px_rgba(16,185,129,0.8)] tracking-widest mr-1.5 min-[380px]:mr-2`}>COSTE</span>
+          <span className={`${isExpanded ? 'text-3xl' : 'text-xs min-[380px]:text-base'} font-serif font-bold text-white drop-shadow-[0_0_4px_rgba(16,185,129,0.5)] leading-none`}>{card.energyCost}⚡</span>
         </div>
       )}
     </div>
@@ -2818,7 +2850,7 @@ function MonsterCardDisplay({ monster, isOpponent = false, isAttacking = false, 
     }
     if (isAcid) {
       return (
-        <div className="relative w-24 h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 z-30 pointer-events-none">
+        <div className="relative w-20 h-28 min-[380px]:w-24 min-[380px]:h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 z-30 pointer-events-none">
           <motion.div initial={{ opacity: 1, scaleY: 1, y: 0, filter: 'drop-shadow(0 0 15px #22c55e)' }} animate={{ opacity: 0, scaleY: 0, y: 120, filter: 'drop-shadow(0 0 30px #22c55e) blur(4px) contrast(150%)' }} transition={{ duration: 1.5, ease: 'easeIn' }} onAnimationComplete={safeToRemove} className="absolute inset-0 origin-bottom">
             <GameCardContent card={monster} isOpponent={isOpponent} defensePercentage={defensePercentage} isTakingDamage={false} />
           </motion.div>
@@ -2828,7 +2860,7 @@ function MonsterCardDisplay({ monster, isOpponent = false, isAttacking = false, 
     
     // Normal Destruction animation
     return (
-      <div className="relative w-24 h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 z-30 pointer-events-none">
+      <div className="relative w-20 h-28 min-[380px]:w-24 min-[380px]:h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 z-30 pointer-events-none">
         <motion.div initial={{ x: 0, y: 0, opacity: 1, filter: 'grayscale(0%) blur(0px)' }} animate={{ x: -40, y: -40, opacity: 0, filter: 'grayscale(100%) blur(10px)', rotate: -15, scale: 0 }} transition={{ duration: 1.2, ease: 'easeOut' }} style={{ clipPath: 'polygon(0 0, 100% 0, 100% 40%, 0 60%)' }} className="absolute inset-0" onAnimationComplete={safeToRemove}>
           <GameCardContent card={monster} isOpponent={isOpponent} defensePercentage={defensePercentage} isTakingDamage={false} />
         </motion.div>
@@ -2863,7 +2895,7 @@ function MonsterCardDisplay({ monster, isOpponent = false, isAttacking = false, 
         x: { duration: 0.5 }, 
         filter: { duration: 0.5 }
       }}
-      className={`relative z-20 w-24 h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 ${isTakingDamage ? 'bg-red-950 rounded-xl' : ''}`}
+      className={`relative z-20 w-20 h-28 min-[380px]:w-24 min-[380px]:h-36 sm:w-28 sm:h-40 md:w-32 md:h-48 lg:w-36 lg:h-52 ${isTakingDamage ? 'bg-red-950 rounded-xl' : ''}`}
     >
       <AnimatePresence>
         {isTakingDamage && (

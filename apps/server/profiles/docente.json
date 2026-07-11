@@ -1,0 +1,27 @@
+{
+  "id": "docente",
+  "name": "Docente de Ejemplo",
+  "pveWins": 0,
+  "cardInventory": {
+    "m1": 1,
+    "m2": 1,
+    "m3": 1,
+    "m4": 1,
+    "m5": 1,
+    "s1": 1,
+    "s2": 1,
+    "s3": 1,
+    "s4": 1,
+    "s5": 1
+  },
+  "pveMatches": 0,
+  "pvpMatches": 0,
+  "matchHistory": [],
+  "savedDecks": [],
+  "role": "teacher",
+  "blocked": false,
+  "visitedStudents": [],
+  "notesLeft": [],
+  "teacherNotes": [],
+  "password": "docente123"
+}
